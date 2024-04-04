@@ -124,7 +124,7 @@ private:
 
 
 };
-
-#endif //INFERNETO_TENSOR_H
-
+using ftensor = Tensor<float>;
+using sftensor = std::shared_ptr<Tensor<float>>;
 }
+#endif //INFERNETO_TENSOR_H

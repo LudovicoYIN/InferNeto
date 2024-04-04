@@ -1,5 +1,5 @@
 
-#include "tensor.hpp"
+#include "data/cpu/tensor.hpp"
 #include <glog/logging.h>
 #include <gtest/gtest.h>
 TEST(test_tensor_size, tensor_size1) {

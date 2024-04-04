@@ -4,7 +4,7 @@
 //
 // Created by hanke on 2024/4/2.
 //
-#include "tensor.hpp"
+#include "data/cpu/tensor.hpp"
 #include <glog/logging.h>
 #include <gtest/gtest.h>
 
