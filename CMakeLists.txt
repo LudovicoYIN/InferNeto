@@ -19,7 +19,9 @@ aux_source_directory(./test/graph TEST_GRAPH)
 aux_source_directory(./core/data/cpu CPU_TENSOR_SOURCE)
 aux_source_directory(./core/infer/pnnx PNNX_SOURCE)
 aux_source_directory(./core/infer/ INFER_SOURCE)
-add_executable(InferNeto main.cpp ${TEST_TENSOR} ${TEST_GRAPH} ${CPU_TENSOR_SOURCE} ${PNNX_SOURCE} ${INFER_SOURCE})
+aux_source_directory(./core/node/abstract NODE_ABSTRACT_SOURCE)
+aux_source_directory(./core/node/details NODE_DETAILS_SOURCE)
+add_executable(InferNeto main.cpp ${TEST_TENSOR} ${TEST_GRAPH} ${CPU_TENSOR_SOURCE} ${PNNX_SOURCE} ${INFER_SOURCE} ${NODE_ABSTRACT_SOURCE} ${NODE_DETAILS_SOURCE})
 
 target_link_libraries(InferNeto ${link_lib} ${link_math_lib} OpenMP::OpenMP_CXX)
 

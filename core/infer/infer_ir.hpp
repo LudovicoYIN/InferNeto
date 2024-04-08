@@ -103,6 +103,7 @@ private:
 
     void ReverseTopo(const std::shared_ptr<RuntimeOperator> &root_op);
 public:
+    GraphState graph_state() const;
 private:
     GraphState graph_state_ = GraphState::NeedInit;
     std::string input_name_;  /// 计算图输入节点的名称

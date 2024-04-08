@@ -85,7 +85,7 @@ bool RuntimeGraph::Init() {
             this->operators_maps_.insert({runtime_operator->name, runtime_operator});
         }
     }
-
+    graph_state_ = GraphState::NeedBuild;
     return true;
 }
 
@@ -143,6 +143,9 @@ void RuntimeGraph::Build(const std::string &input_name,
         graph_ = nullptr;
     }
 }
+
+RuntimeGraph::GraphState RuntimeGraph::graph_state() const { return this->graph_state_; }
+
 void RuntimeGraph::ReverseTopo(
         const std::shared_ptr<RuntimeOperator> &root_op) {
     CHECK(root_op != nullptr) << "current operator is nullptr";
