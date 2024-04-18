@@ -2,385 +2,370 @@
 // Created by hanke on 2024/3/31.
 //
 #include <glog/logging.h>
+#include <random>
+#include <functional>
 #include "tensor.hpp"
 namespace infer_neto {
-
-template<typename T>
-Tensor<T>::Tensor() : data_(nullptr), shape_({}), strides_({}) {}
-
-template<typename T>
-Tensor<T>::Tensor(const std::vector<uint32_t>& shape, const std::vector<T>& data) : shape_(shape) {
-    initializeData(data);
-}
-
-template<typename T>
-Tensor<T>::Tensor(const std::vector<uint32_t>& shape, T fillValue) : shape_(shape) {
-    initializeData(std::vector<T>(calculateTotalSize(shape), fillValue));
-}
-
-template<typename T>
-Tensor<T>::Tensor(const Tensor<T>& other) {
-    // 实现复制构造函数的细节
-    shape_ = other.shape_;
-    strides_ = other.strides_;
-    auto totalSize = calculateTotalSize(shape_);
-    data_ = std::make_unique<T[]>(totalSize);
-    std::copy(other.data_.get(), other.data_.get() + totalSize, data_.get());
-}
-
-template<typename T>
-Tensor<T>::Tensor(Tensor<T>&& other) noexcept
-        : data_(std::move(other.data_)), shape_(std::move(other.shape_)), strides_(std::move(other.strides_)) {
-    // 移动构造函数体可以保持空，因为成员初始化列表已经完成了所有工作
-}
-
-template<typename T>
-Tensor<T>& Tensor<T>::operator=(const Tensor<T>& other) {
-    if (this != &other) {
-        shape_ = other.shape_;
-        strides_ = other.strides_;
-        auto totalSize = calculateTotalSize(shape_);
-        data_ = std::make_unique<T[]>(totalSize);
-        std::copy(other.data_.get(), other.data_.get() + totalSize, data_.get());
+    Tensor<float>::Tensor(uint32_t channels, uint32_t rows, uint32_t cols) {
+        size_ = channels * rows * cols;
+        data_ = std::make_unique<float[]>(size_);
+        if (channels == 1 && rows == 1) {
+            this->raw_shapes_ = std::vector<uint32_t>{cols};
+        } else if (channels == 1) {
+            this->raw_shapes_ = std::vector<uint32_t>{rows, cols};
+        } else {
+            this->raw_shapes_ = std::vector<uint32_t>{channels, rows, cols};
+        }
+        calculateStrides();
     }
-    return *this;
-}
 
-template<typename T>
-Tensor<T>& Tensor<T>::operator=(Tensor<T>&& other) noexcept {
-    if (this != &other) {
-        data_ = std::move(other.data_);
-        shape_ = std::move(other.shape_);
-        strides_ = std::move(other.strides_);
+    Tensor<float>::Tensor(uint32_t size) {
+        size_ = size;
+        data_ = std::make_unique<float[]>(size_);
+        this->raw_shapes_ = std::vector<uint32_t>{size};
+        calculateStrides();
     }
-    return *this;
-}
 
-
-template<typename T>
-Tensor<T> Tensor<T>::operator+(const Tensor& other) const {
-    return elementWiseOperation(other, std::plus<>());
-}
-
-template<typename T>
-Tensor<T> Tensor<T>::operator-(const Tensor& other) const {
-    return elementWiseOperation(other, std::minus<>());
-}
-
-template<typename T>
-Tensor<T> Tensor<T>::operator*(const Tensor& other) const {
-    return elementWiseOperation(other, std::multiplies<>());
-}
-
-template<typename T>
-Tensor<T> Tensor<T>::operator/(const Tensor& other) const {
-    return elementWiseOperation(other, std::divides<>());
-}
-
-template<typename T>
-void Tensor<T>::random(T lower_bound, T upper_bound) {
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    std::uniform_real_distribution<> dis(lower_bound, upper_bound);
-
-    for (uint32_t i = 0; i < calculateTotalSize(shape_); ++i) {
-        data_[i] = static_cast<T>(dis(gen));
+    Tensor<float>::Tensor(uint32_t rows, uint32_t cols) {
+        size_ = rows * cols;
+        data_ = std::make_unique<float[]>(rows * cols * 1);
+        this->raw_shapes_ = std::vector<uint32_t>{rows, cols};
+        calculateStrides();
     }
-}
 
-template<typename T>
-void Tensor<T>::fill(T data) {
-    for (uint32_t i = 0; i < calculateTotalSize(shape_); ++i) {
-        data_[i] = data;
+    Tensor<float>::Tensor(const std::vector<uint32_t> &shapes) {
+        CHECK(!shapes.empty() && shapes.size() <= 3);
+
+        uint32_t remaining = 3 - shapes.size();
+        std::vector<uint32_t> shapes_(3, 1);
+        std::copy(shapes.begin(), shapes.end(), shapes_.begin() + remaining);
+
+        uint32_t channels = shapes_.at(0);
+        uint32_t rows = shapes_.at(1);
+        uint32_t cols = shapes_.at(2);
+        size_ = rows * cols * channels;
+        data_ = std::make_unique<float[]>(size_);
+        if (channels == 1 && rows == 1) {
+            this->raw_shapes_ = std::vector<uint32_t>{cols};
+        } else if (channels == 1) {
+            this->raw_shapes_ = std::vector<uint32_t>{rows, cols};
+        } else {
+            this->raw_shapes_ = std::vector<uint32_t>{channels, rows, cols};
+        }
+        calculateStrides();
     }
-}
 
-template<typename T>
-void Tensor<T>::fill(const std::vector<T>& values) {
-    uint32_t total_elems = calculateTotalSize(shape_);
-    CHECK_EQ(values.size(), total_elems) << "Values size does not match tensor's total elements.";
-    // 对于行优先，我们直接复制values到data_，因为标准的C++数组（std::unique_ptr<T[]>指向的数组）本身就是行优先存储
-    std::copy(values.begin(), values.end(), data_.get());
-}
-template<typename T>
-Tensor<T> Tensor<T>::transpose() const {
-    CHECK_EQ(shape_.size(), 2) << "Transpose is only implemented for 2D tensors.";
+    Tensor<float>::Tensor(const Tensor &tensor) {
+        // 复制形状和步长信息
+        this->raw_shapes_ = tensor.raw_shapes_;
+        this->strides_ = tensor.strides_;
+        this->size_ = tensor.size_;
 
-    std::vector<uint32_t> transposedShape = {shape_[1], shape_[0]};
-    Tensor transposedTensor(transposedShape);
+        // 为data_分配空间并进行深拷贝
+        this->data_ = std::make_unique<float[]>(size_);
+        std::copy(tensor.data_.get(), tensor.data_.get() + size_, this->data_.get());
+    }
 
-    for (uint32_t i = 0; i < shape_[0]; ++i) {
-        for (uint32_t j = 0; j < shape_[1]; ++j) {
-            transposedTensor.data_[j * shape_[0] + i] = data_[i * shape_[1] + j];
+    Tensor<float>::Tensor(Tensor<float> &&tensor) noexcept {
+        if (this != &tensor) {
+            this->data_ = std::move(tensor.data_);
+            this->raw_shapes_ = std::move(tensor.raw_shapes_);
+            this->strides_ = std::move(tensor.strides_);
+            this->size_ = tensor.size_;
         }
     }
 
-    return transposedTensor;
-}
-
-template<typename T>
-void Tensor<T>::reshape(const std::vector<uint32_t>& newShape) {
-    uint32_t currentTotalSize = calculateTotalSize(shape_);
-    uint32_t newTotalSize = calculateTotalSize(newShape);
-    CHECK_EQ(currentTotalSize, newTotalSize) << "Total size of new shape must be unchanged.";
-
-    // 更新形状
-    shape_ = newShape;
-
-    // 如果你的Tensor类使用步长来计算索引，则需要重新计算步长
-    calculateStrides();
-}
-
-template<typename T>
-void Tensor<T>::print() const {
-    printTensor(0); // 直接调用，依赖于方法签名中的默认参数
-    std::cout << std::endl;
-}
-
-
-template<typename T>
-T& Tensor<T>::at(const std::vector<uint32_t>& indices) {
-    return data_[indexToOffset(indices)];
-}
-
-
-template<typename T>
-const T& Tensor<T>::at(const std::vector<uint32_t>& indices) const {
-    return data_[indexToOffset(indices)];
-}
-
-template<typename T>
-bool Tensor<T>::empty() const {
-    return !data_ || calculateTotalSize(shape_) == 0;
-}
-
-template<typename T>
-void Tensor<T>::transform(std::function<void(T&)> func) {
-    for (size_t i = 0; i < calculateTotalSize(shape_); ++i) {
-        func(data_[i]);
-    }
-}
-
-template<typename T>
-void Tensor<T>::flatten() {
-    // 计算总元素数
-    uint32_t totalSize = calculateTotalSize(shape_);
-
-    // 更新形状为一维，其中包含所有元素
-    shape_ = {totalSize};
-
-    // 由于现在是一维张量，步长只需要是1
-    strides_ = {1}; // 假设你使用步长来计算索引
-}
-
-template<typename T>
-Tensor<T> Tensor<T>::slice(uint32_t start, uint32_t end) const {
-    CHECK_LT(start, end) << "start should be less than or equal to end.";
-    CHECK_LT(end, shape_[0]) << "end should be less than shape_[0].";
-    std::vector<uint32_t> newShape = shape_;
-    newShape[0] = end - start;
-    std::vector<T> newData(newShape[0] * calculateTotalSize(std::vector<uint32_t>(shape_.begin() + 1, shape_.end())));
-
-    for (uint32_t i = start; i < end; ++i) {
-        std::copy(data_.get() + i * calculateTotalSize(std::vector<uint32_t>(shape_.begin() + 1, shape_.end())),
-                  data_.get() + (i + 1) * calculateTotalSize(std::vector<uint32_t>(shape_.begin() + 1, shape_.end())),
-                  newData.begin() + (i - start) * calculateTotalSize(std::vector<uint32_t>(shape_.begin() + 1, shape_.end())));
+    Tensor<float> &Tensor<float>::operator=(Tensor<float> &&tensor) noexcept {
+        if (this != &tensor) {
+            this->data_ = std::move(tensor.data_);
+            this->raw_shapes_ = std::move(tensor.raw_shapes_);
+            this->strides_ = std::move(tensor.strides_);
+            this->size_ = tensor.size_;
+        }
+        return *this;
     }
 
-    return Tensor(newShape, newData);
-}
-template<typename T>
-Tensor<T> Tensor<T>::slice(uint32_t index) const {
-    CHECK_LE(index, shape_[0]) << "Index should be less than the first dimension of the shape.";
+    Tensor<float> &Tensor<float>::operator=(const Tensor &tensor) {
+        if (this != &tensor) {
+            this->strides_ = tensor.strides_;
+            this->raw_shapes_ = tensor.raw_shapes_;
+            this->size_ = tensor.size_;
 
-    // 确保张量至少是二维的，因为切片会减少一个维度
-    CHECK_GE(shape_.size(), 2) << "Tensor must be at least 2-dimensional for slicing.";
+            // 为data_分配空间并进行深拷贝
+            this->data_ = std::make_unique<float[]>(size_);
+            std::copy(tensor.data_.get(), tensor.data_.get() + size_, this->data_.get());
+        }
+        return *this;
+    }
 
-    // 创建新形状，移除最外层维度
-    std::vector<uint32_t> newShape(shape_.begin() + 1, shape_.end());
 
-    // 计算新形状的总大小
-    uint32_t newSize = calculateTotalSize(newShape);
+    void Tensor<float>::calculateStrides() {
+        strides_.resize(raw_shapes_.size());
+        uint32_t stride = 1;
+        for (size_t i = raw_shapes_.size(); i-- > 0;) {
+            strides_[i] = stride;
+            stride *= raw_shapes_[i];
+        }
+    }
 
-    // 为新张量的数据分配空间
-    std::vector<T> newData(newSize);
 
-    // 计算起始偏移量
-    uint32_t startOffset = index * newSize;
+    uint32_t Tensor<float>::rows() const {
+        if (this->raw_shapes_.size() >= 2) {
+            // 对于至少有二维的张量，倒数第二个元素是行数
+            return this->raw_shapes_[this->raw_shapes_.size() - 2];
+        } else {
+            // 对于一维张量，我们可以认为行数为1
+            return 1;
+        }
+    }
 
-    // 复制数据到新张量
-    std::copy(data_.get() + startOffset, data_.get() + startOffset + newSize, newData.begin());
+    uint32_t Tensor<float>::cols() const {
+        if (!this->raw_shapes_.empty()) {
+            // 最后一个元素总是列数
+            return this->raw_shapes_.back();
+        } else {
+            // 如果张量是空的，列数为0
+            return 0;
+        }
+    }
 
-    // 创建并返回新的张量
-    return Tensor<T>(newShape, newData);
-}
+    uint32_t Tensor<float>::channels() const {
+        if (this->raw_shapes_.size() == 3) {
+            // 对于至少有三维的张量，第一个元素是通道数
+            return this->raw_shapes_[0];
+        } else {
+            // 对于二维或一维张量，我们可以认为通道数为1
+            return 1;
+        }
+    }
 
-template<typename T>
-void Tensor<T>::padding(const std::vector<uint32_t>& pads, T padding_value) {
-    // 确保pads的大小是4（上下左右）
-    CHECK_EQ(pads.size(), 4) << "Padding requires 4 values for top, bottom, left, and right pads.";
 
-    // 获取原始维度
-    uint32_t original_rows = rows();
-    uint32_t original_cols = cols();
-    uint32_t original_channels = channels();
+    void Tensor<float>::set_data(const float *&data) {
+        CHECK(!data);
+        // 为data_分配内存。这里我们假设每次调用set_data都会重置数据，
+        // 如果想要优化内存使用，可以根据需要进行调整
+        data_ = std::make_unique<float[]>(size_);
 
-    // 计算新维度
-    uint32_t new_rows = original_rows + pads[0] + pads[1];
-    uint32_t new_cols = original_cols + pads[2] + pads[3];
+        // 使用std::copy复制数据。注意，我们这里没有直接的方式知道数据的实际大小，
+        // 所以我们依赖于调用者正确地维护数据大小与Tensor形状的一致性
+        std::copy(data, data + size_, data_.get());
+    }
 
-    // 创建新形状
-    std::vector<uint32_t> new_shape = {original_channels, new_rows, new_cols};
+    bool Tensor<float>::empty() const { return !this->data_; }
 
-    // 分配新数据
-    std::unique_ptr<T[]> new_data(new T[calculateTotalSize(new_shape)]);
-    std::fill_n(new_data.get(), calculateTotalSize(new_shape), padding_value);
+    float Tensor<float>::index(uint32_t offset) const {
+        CHECK(offset < size_) << "Tensor index out of bound!";
+        return this->data_[offset];
+    }
 
-    // 复制原始数据到新数据中，考虑填充
-    for (uint32_t c = 0; c < original_channels; ++c) {
-        for (uint32_t r = 0; r < original_rows; ++r) {
-            for (uint32_t col = 0; col < original_cols; ++col) {
-                uint32_t old_index = c * original_rows * original_cols + r * original_cols + col;
-                uint32_t new_index = c * new_rows * new_cols + (r + pads[0]) * new_cols + (col + pads[2]);
-                new_data[new_index] = data_[old_index];
+    float &Tensor<float>::index(uint32_t offset) {
+        CHECK(offset < size_) << "Tensor index out of bound!";
+        return this->data_[offset];
+    }
+
+    std::vector<uint32_t> Tensor<float>::shapes() const {
+        CHECK(this->data_);
+        return {this->channels(), this->rows(), this->cols()};
+    }
+
+    std::unique_ptr<float[]> &Tensor<float>::data() { return this->data_; }
+
+    const std::unique_ptr<float[]> &Tensor<float>::data() const { return this->data_; }
+
+    float *Tensor<float>::slice(uint32_t channel) {
+        CHECK_LE (channel, raw_shapes_[0]) << "Channel index out of range.";
+        return this->data_.get() + channel * strides_[0];
+    }
+
+    float *Tensor<float>::slice(uint32_t channel) const {
+        CHECK_LE (channel, raw_shapes_[0]) << "Channel index out of range.";
+        return this->data_.get() + channel * strides_[0];
+    }
+
+    float Tensor<float>::at(uint32_t channel, uint32_t row, uint32_t col) const {
+        CHECK_LT(row, this->rows());
+        CHECK_LT(col, this->cols());
+        CHECK_LT(channel, this->channels());
+        return this->data_[(channel * this->rows() * this->cols()) + (row * this->cols()) + col];
+    }
+
+    float &Tensor<float>::at(uint32_t channel, uint32_t row, uint32_t col) {
+        CHECK_LT(row, this->rows());
+        CHECK_LT(col, this->cols());
+        CHECK_LT(channel, this->channels());
+        return this->data_[(channel * this->rows() * this->cols()) + (row * this->cols()) + col];
+    }
+
+    void Tensor<float>::Padding(const std::vector<uint32_t> &pads, float padding_value) {
+        CHECK(this->data_) << "The data area of the tensor is empty.";
+        CHECK_EQ(pads.size(), 4) << "Padding dimensions must be 4.";
+
+        uint32_t pad_rows1 = pads.at(0);  // 上方填充行数
+        uint32_t pad_rows2 = pads.at(1);  // 下方填充行数
+        uint32_t pad_cols1 = pads.at(2);  // 左侧填充列数
+        uint32_t pad_cols2 = pads.at(3);  // 右侧填充列数
+
+        uint32_t new_rows = this->rows() + pad_rows1 + pad_rows2;
+        uint32_t new_cols = this->cols() + pad_cols1 + pad_cols2;
+        uint32_t new_channels = this->channels();
+
+        // 创建新的数据数组
+        std::unique_ptr<float[]> new_data = std::make_unique<float[]>(new_channels * new_rows * new_cols);
+        std::fill_n(new_data.get(), new_channels * new_rows * new_cols, padding_value);
+
+        // 复制原始数据到新的数据数组中正确的位置
+        for (uint32_t ch = 0; ch < new_channels; ++ch) {
+            for (uint32_t r = 0; r < this->rows(); ++r) {
+                std::copy(this->data_.get() + (ch * this->rows() + r) * this->cols(),
+                          this->data_.get() + (ch * this->rows() + r + 1) * this->cols(),
+                          new_data.get() + ((ch * new_rows + r + pad_rows1) * new_cols + pad_cols1));
+            }
+        }
+
+        // 更新类成员变量
+        this->data_ = std::move(new_data);
+        this->raw_shapes_ = std::vector<uint32_t>{new_channels, new_rows, new_cols};
+        this->calculateStrides();  // 更新步长信息
+    }
+
+
+    void Tensor<float>::Fill(float value) {
+        CHECK(this->data_);
+        std::fill_n(this->data_.get(), this->size_, value);
+    }
+
+    void Tensor<float>::Fill(const std::vector<float> &values) {
+        CHECK(this->data_);
+        const uint32_t total_elems = this->size_;
+        CHECK_EQ(values.size(), total_elems);
+
+        std::copy(values.begin(), values.end(), this->data_.get());
+
+    }
+
+    void Tensor<float>::Show() {
+        if (this->empty()) {
+            LOG(INFO) << "Tensor is empty!";
+            return;
+        }
+
+        // 迭代每一个通道
+        for (uint32_t c = 0; c < this->channels(); ++c) {
+            LOG(INFO) << "Channel " << c << ":";
+
+            // 获取当前通道的数据指针
+            float* channel_data = this->slice(c);
+            if (!channel_data) {
+                LOG(INFO) << "  Null data for channel " << c;
+                continue;
+            }
+
+            // 使用一个字符串流来收集一行的数据
+            std::ostringstream stream;
+            for (uint32_t r = 0; r < this->rows(); ++r) {
+                for (uint32_t col = 0; col < this->cols(); ++col) {
+                    // 根据行主顺序计算索引
+                    uint32_t index = r * this->cols() + col;
+                    stream << channel_data[index] << " ";
+                }
+                LOG(INFO) << stream.str();
+                stream.str(""); // 清空流以便下一行使用
+                stream.clear(); // 清除任何错误状态
             }
         }
     }
 
-    // 更新Tensor状态
-    data_ = std::move(new_data);
-    shape_ = new_shape;
-    calculateStrides(); // 重新计算步长，如果你的Tensor类使用步长
-}
-
-template<typename T>
-uint32_t Tensor<T>::rows() const {
-    // 检查至少是一个二维张量
-    if (shape_.size() >= 2) {
-        return static_cast<uint32_t>(shape_[1]);
-    } else {
-        return static_cast<uint32_t>(1);
+    void Tensor<float>::Flatten() {
+        CHECK(this->data_);
+        this->raw_shapes_ = {this->size()};
+        this->calculateStrides();
     }
-}
 
-template<typename T>
-uint32_t Tensor<T>::cols() const {
-    // 检查至少是一个1维张量
-    if (!shape_.empty()) {
-        return static_cast<uint32_t>(shape_[2]);
-    } else {
-        return static_cast<uint32_t>(1);
-    }
-}
+    void Tensor<float>::Rand() {
+        CHECK(this->data_);
+        // 创建随机数发生器
+        std::random_device rd;  // 非确定性随机数生成器
+        std::mt19937 gen(rd());  // 以 rd() 为种子，初始化 Mersenne Twister 伪随机数生成器
+        std::uniform_real_distribution<> dis(0.0, 1.0);  // 定义均匀分布范围
 
-template<typename T>
-uint32_t Tensor<T>::channels() const {
-    // 检查至少是一个三维张量
-    if (shape_.size() == 3) {
-        return static_cast<uint32_t>(shape_[0]);
-    } else {
-        return static_cast<uint32_t>(1);
-    }
-}
-
-template<typename T>
-void Tensor<T>::show() {
-    print();
-}
-
-template<typename T>
-const std::vector<uint32_t>& Tensor<T>::shape() const {
-    return shape_;
-}
-
-template<typename T>
-uint32_t Tensor<T>::size() const {
-    return calculateTotalSize(shape_);
-}
-
-template<typename T>
-uint32_t Tensor<T>::calculateTotalSize(const std::vector<uint32_t>& shape) const {
-    return std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<uint32_t>());
-}
-
-template<typename T>
-void Tensor<T>::initializeData(const std::vector<T>& data) {
-    uint32_t totalSize = calculateTotalSize(shape_);
-    CHECK_EQ(totalSize, data.size()) << "Data size does not match tensor shape.";
-    data_ = std::make_unique<T[]>(totalSize);
-    std::copy(data.begin(), data.end(), data_.get());
-    calculateStrides();
-}
-
-template<typename T>
-void Tensor<T>::calculateStrides() {
-    strides_.resize(shape_.size());
-    uint32_t stride = 1;
-    for (int i = shape_.size() - 1; i >= 0; --i) {
-        strides_[i] = stride;
-        stride *= shape_[i];
-    }
-}
-
-template<typename T>
-Tensor<T> Tensor<T>::elementWiseOperation(const Tensor& other, std::function<T(T, T)> op) const {
-    if (shape_ != other.shape_) {
-        throw std::invalid_argument("Tensor shapes do not match.");
-    }
-    std::vector<T> resultData(calculateTotalSize(shape_));
-    for (uint32_t i = 0; i < resultData.size(); i++) {
-        resultData[i] = op(data_[i], other.data_[i]);
-    }
-    return Tensor(shape_, resultData);
-}
-
-template<typename T>
-void Tensor<T>::printTensor(uint32_t dimIndex, const std::vector<uint32_t>& indices) const {
-    std::stringstream ss; // 使用stringstream来构建字符串
-
-    if (dimIndex >= shape_.size()) {
-        // 当索引完全时，打印该元素
-        ss << data_[indexToOffset(indices)];
-    } else {
-        ss << "[";
-        for (uint32_t i = 0; i < shape_[dimIndex]; ++i) {
-            // 构建当前维度的索引
-            std::vector<uint32_t> currentIndices = indices;
-            currentIndices.push_back(i);
-            // 递归打印下一个维度，但不直接打印，而是追加到stringstream
-            std::stringstream temp_ss;
-            std::streambuf* orig_buf = std::cout.rdbuf(temp_ss.rdbuf());
-            printTensor(dimIndex + 1, currentIndices);
-            std::cout.rdbuf(orig_buf); // 恢复原来的streambuf
-
-            ss << temp_ss.str();
-            if (i < shape_[dimIndex] - 1) {
-                if(dimIndex == shape_.size() - 2) ss << "\n"; // 最内层维度结束后换行
-                else ss << ", ";
-            }
+        // 为每个张量元素生成随机数
+        for (std::uint32_t i = 0; i < this->size_; ++i) {
+            this->data_[i] = dis(gen);
         }
-        ss << "]";
     }
 
-    if (dimIndex == 0) {
-        LOG(INFO) << ss.str(); // 最外层结束后使用glog进行输出
-    } else {
-        std::cout << ss.str(); // 非最外层仍然使用std::cout进行递归构建
+    void Tensor<float>::Ones() {
+        CHECK(this->data_);
+        this->Fill(1.f);
     }
-}
 
-template<typename T>
-uint32_t Tensor<T>::indexToOffset(const std::vector<uint32_t>& indices) const {
-//    CHECK_EQ(indices.size(), shape_.size()) << "Index dimension does not match tensor dimension.";
-    uint32_t offset = 0;
-    for (uint32_t i = 0; i < indices.size(); ++i) {
-        if (indices[i] == 1) continue;
-        CHECK_LE(indices[i], shape_[i]) << "Tensor index out of range.";
-        offset += indices[i] * strides_[i];
+    void Tensor<float>::Transform(const std::function<float(float)> &filter) {
+        CHECK(this->data_);
+        for (uint32_t i = 0; i < this->size_; ++i) {
+            data_[i] = filter(data_[i]);
+        }
     }
-    return offset;
-}
 
-template class Tensor<float>;
-template class Tensor<int>;
+    const std::vector<uint32_t> &Tensor<float>::raw_shapes() const {
+        CHECK(!this->raw_shapes_.empty());
+        CHECK_LE(this->raw_shapes_.size(), 3);
+        CHECK_GE(this->raw_shapes_.size(), 1);
+        return this->raw_shapes_;
+    }
+
+    void Tensor<float>::Reshape(const std::vector<uint32_t> &shapes) {
+        CHECK(this->data_);
+        CHECK(!shapes.empty());
+        const uint32_t origin_size = this->size_;
+        const uint32_t current_size = std::accumulate(shapes.begin(), shapes.end(), 1, std::multiplies());
+        CHECK(shapes.size() <= 3);
+        CHECK(current_size == origin_size);
+
+        this->raw_shapes_ = shapes;
+        this->calculateStrides();
+    }
+
+    float *Tensor<float>::raw_ptr() {
+        CHECK(this->data_);
+        return this->data_.get();;
+    }
+
+    float *Tensor<float>::raw_ptr(uint32_t offset) {
+        const uint32_t size = this->size_;
+        CHECK(this->data_);
+        CHECK_LT(offset, size);
+        return this->data_.get() + offset;
+    }
+
+    std::vector<float> Tensor<float>::values() {
+        CHECK(this->data_);
+        std::vector<float> values(this->size());
+
+        std::copy(this->data_.get(), this->data_.get() + this->size(),
+                  values.begin());
+
+        return values;
+    }
+
+    float *Tensor<float>::matrix_raw_ptr(uint32_t index) {
+        CHECK_LT(index, this->channels());
+        uint32_t offset = index * this->rows() * this->cols();
+        CHECK_LE(offset, this->size());
+        float *mem_ptr = this->raw_ptr() + offset;
+        return mem_ptr;
+    }
+
+    uint32_t Tensor<float>::size() const {
+        return this->size_;
+    }
+
+    sftensor operator-=(sftensor tensor, const float value) {
+        CHECK(tensor != nullptr);
+        float* data = tensor->raw_ptr();
+        for(int i = 0; i < tensor->size(); i++) {
+            data[i] -= value;
+        }
+        return tensor;
+    }
+
 }

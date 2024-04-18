@@ -1,130 +1,259 @@
 //
-// Created by hanke on 2024/3/31.
+// Created by fss on 22-11-12.
 //
 
-#ifndef INFERNETO_TENSOR_H
-#define INFERNETO_TENSOR_H
-
-#include <algorithm>
-#include <functional>
-#include <iostream>
+#ifndef INFER_NETO_DATA_BLOB_HPP_
+#define INFER_NETO_DATA_BLOB_HPP_
 #include <memory>
-#include <numeric>
-#include <random>
-#include <stdexcept>
 #include <vector>
-
-/**
- * @brief 多维张量类
- *
- * @tparam T 存储在张量中的元素类型
- */
+#include <functional>
 namespace infer_neto {
-template<typename T>
-class Tensor {
-public:
-    Tensor();
+    template<typename T = float>
+    class Tensor {};
 
-    // 构造函数
-    explicit Tensor(const std::vector<uint32_t>& shape, const std::vector<T>& data);
-    explicit Tensor(const std::vector<uint32_t>& shape, T fillValue = T());
+    template<>
+    class Tensor<uint8_t> {
+        // 待实现
+    };
 
-    // 析构函数
-    ~Tensor() = default;
+    template<>
+    class Tensor<float> {
+    public:
+        explicit Tensor() = default;
 
-    Tensor(const Tensor& other); // 复制构造函数
-    Tensor(Tensor&& other) noexcept; // 移动构造函数
-    Tensor& operator=(const Tensor& other); // 复制赋值操作符
-    Tensor& operator=(Tensor&& other) noexcept; // 移动赋值操作符
+        /**
+         * 创建张量
+         * @param channels 张量的通道数
+         * @param rows 张量的行数
+         * @param cols 张量的列数
+         */
+        explicit Tensor(uint32_t channels, uint32_t rows, uint32_t cols);
 
-    // 获取shape
-    const std::vector<uint32_t>& shape() const;
+        /**
+         * 创建一个一维向量
+         * @param size 一维向量中元素的个数
+         */
+        explicit Tensor(uint32_t size);
 
-    // 获取总元素个数
-    uint32_t size() const;
+        /**
+         * 创建一个二维向量
+         * @param rows 二维向量的高度
+         * @param cols 二维向量的宽度
+         */
+        explicit Tensor(uint32_t rows, uint32_t cols);
 
-    // 基础数学运算
-    Tensor operator+(const Tensor& other) const;
-    Tensor operator-(const Tensor& other) const;
-    Tensor operator*(const Tensor& other) const;
-    Tensor operator/(const Tensor& other) const;
+        /**
+         * 创建张量
+         * @param shapes 张量的维度
+         */
+        explicit Tensor(const std::vector<uint32_t> &shapes);
 
-    // 随机填充
-    void random(T lower_bound = 0, T upper_bound = 1);
+        Tensor(const Tensor &tensor);
 
-    // 随机填充
-    void fill(T data = 0);
+        Tensor(Tensor &&tensor) noexcept;
 
-    // 随机填充
-    void fill(const std::vector<T>& values);
+        Tensor<float> &operator=(Tensor &&tensor) noexcept;
 
-    // 转置
-    Tensor transpose() const;
+        Tensor<float> &operator=(const Tensor &tensor);
 
-    // 重塑
-    void reshape(const std::vector<uint32_t> &newShape);
+        /**
+         * 返回张量的行数
+         * @return 张量的行数
+         */
+        uint32_t rows() const;
 
-    // 基础打印函数
-    void print() const;
+        /**
+         * 返回张量的列数
+         * @return 张量的列数
+         */
+        uint32_t cols() const;
 
-    // 打印张量
-    void show();
+        /**
+         * 返回张量的通道数
+         * @return 张量的通道数
+         */
+        uint32_t channels() const;
 
-    // 按索引取值、修改值
-    T& at(const std::vector<uint32_t>& indices);
+        /**
+         * 返回张量中元素的数量
+         * @return 张量的元素数量
+         */
+        uint32_t size() const;
+
+        /**
+         * 设置张量中的具体数据
+         * @param data 数据
+         */
+        void set_data(const float* &data);
+
+        /**
+         * 返回张量是否为空
+         * @return 张量是否为空
+         */
+        bool empty() const;
+
+        /**
+         * 返回张量中offset位置的元素
+         * @param offset 需要访问的位置
+         * @return offset位置的元素
+         */
+        float index(uint32_t offset) const;
+
+        /**
+         * 返回张量中offset位置的元素
+         * @param offset 需要访问的位置
+         * @return offset位置的元素
+         */
+        float &index(uint32_t offset);
+
+        /**
+         * 张量的尺寸大小
+         * @return 张量的尺寸大小
+         */
+        std::vector<uint32_t> shapes() const;
+
+        /**
+         * 张量的实际尺寸大小
+         * @return 张量的实际尺寸大小
+         */
+        const std::vector<uint32_t> &raw_shapes() const;
+
+        /**
+         * 返回张量中的数据
+         * @return 张量中的数据
+         */
+        std::unique_ptr<float[]> & data();
+
+        /**
+         * 返回张量中的数据
+         * @return 张量中的数据
+         */
+        const std::unique_ptr<float[]> & data() const;
+
+        /**
+         * 返回张量第channel通道中的数据
+         * @param channel 需要返回的通道
+         * @return 返回的通道
+         */
+        float* slice(uint32_t channel);
+
+        /**
+         * 返回张量第channel通道中的数据
+         * @param channel 需要返回的通道
+         * @return 返回的通道
+         */
+        float* slice(uint32_t channel) const;
+
+        /**
+         * 返回特定位置的元素
+         * @param channel 通道
+         * @param row 行数
+         * @param col 列数
+         * @return 特定位置的元素
+         */
+        float at(uint32_t channel, uint32_t row, uint32_t col) const;
+
+        /**
+         * 返回特定位置的元素
+         * @param channel 通道
+         * @param row 行数
+         * @param col 列数
+         * @return 特定位置的元素
+         */
+        float &at(uint32_t channel, uint32_t row, uint32_t col);
+
+        /**
+         * 填充张量
+         * @param pads 填充张量的尺寸
+         * @param padding_value 填充张量
+         */
+        void Padding(const std::vector<uint32_t> &pads, float padding_value);
+
+        /**
+         * 使用value值去初始化向量
+         * @param value
+         */
+        void Fill(float value);
+
+        /**
+         * 使用values中的数据初始化张量
+         * @param values 用来初始化张量的数据
+         */
+        void Fill(const std::vector<float> &values);
+        /**
+         * 返回Tensor内的所有数据
+         * @param row_major 是否是行主序列的
+         * @return Tensor内的所有数据
+         */
+        std::vector<float> values();
+
+        /**
+         * 以常量1初始化张量
+         */
+        void Ones();
+
+        /**
+         * 以随机值初始化张量
+         */
+        void Rand();
+
+        /**
+         * 打印张量
+         */
+        void Show();
+
+        /**
+         * 张量的实际尺寸大小的Reshape pytorch兼容
+         * @param shapes 张量的实际尺寸大小
+         * @param row_major 根据行主序还是列主序进行reshape
+         */
+        void Reshape(const std::vector<uint32_t> &shapes);
+
+        /**
+         * 展开张量
+         */
+        void Flatten();
+
+        /**
+         * 对张量中的元素进行过滤
+         * @param filter 过滤函数
+         */
+        void Transform(const std::function<float(float)> &filter);
+
+        /**
+         * 返回数据的原始指针
+         * @return 返回数据的原始指针
+         */
+        float *raw_ptr();
+
+        /**
+         * 返回数据的原始指针
+         * @param offset 数据指针的偏移量
+         * @return 返回数据的原始指针
+         */
+        float *raw_ptr(uint32_t offset);
+
+        /**
+         * 返回第index个矩阵的起始地址
+         * @param index 第index个矩阵
+         * @return 第index个矩阵的起始地址
+         */
+        float *matrix_raw_ptr(uint32_t index);
+
+    private:
+        std::vector<uint32_t> raw_shapes_;        // 存储形状
+        std::vector<uint32_t> strides_;      // 存储步长
+        std::unique_ptr<float[]> data_;      // 张量数据
+        std::uint32_t size_{};
+        // 计算总步长
+        void calculateStrides();
+    };
+
+    using ftensor = Tensor<float>;
+    using sftensor = std::shared_ptr<Tensor<float>>;
 
 
-    // 按索引取值，不可修改
-    const T& at(const std::vector<uint32_t>& indices)  const;
 
-    // 打平
-    void flatten();
+}  // namespace infer_neto
 
-    // padding操作
-    void padding(const std::vector<uint32_t>& pads, T padding_value);
-
-    // 判空操作
-    bool empty() const;
-
-    //转换操作
-    void transform(std::function<void(T & )> func);
-
-    // 切片操作
-    Tensor slice(uint32_t start, uint32_t end) const;
-    Tensor slice(uint32_t index) const;
-
-    // 获取矩阵信息
-    uint32_t rows() const;
-    uint32_t cols() const;
-    uint32_t channels() const;
-
-
-private:
-    std::unique_ptr<T[]> data_;        // 存储数据
-    std::vector<uint32_t> shape_;        // 存储形状
-    std::vector<uint32_t> strides_;      // 存储步长
-    // 加载数据
-    void initializeData(const std::vector<T>& data);
-
-    // 计算总数
-    uint32_t calculateTotalSize(const std::vector<uint32_t>& shape) const;
-
-    // 计算总步长
-    void calculateStrides();
-
-    // 元素操作
-    Tensor elementWiseOperation(const Tensor& other, std::function<T(T, T)> op) const;
-
-    // 打印Tensor
-    void printTensor(uint32_t dimIndex, const std::vector<uint32_t>& indices = {}) const;
-
-    // 计算偏移量
-    uint32_t indexToOffset(const std::vector<uint32_t>& indices) const;
-
-
-
-};
-using ftensor = Tensor<float>;
-using sftensor = std::shared_ptr<Tensor<float>>;
-}
-#endif //INFERNETO_TENSOR_H
+#endif  // INFER_NETO_DATA_BLOB_HPP_
