@@ -141,14 +141,8 @@ namespace infer_neto {
 
 
     void Tensor<float>::set_data(const float *&data) {
-        CHECK(!data);
-        // 为data_分配内存。这里我们假设每次调用set_data都会重置数据，
-        // 如果想要优化内存使用，可以根据需要进行调整
-        data_ = std::make_unique<float[]>(size_);
-
-        // 使用std::copy复制数据。注意，我们这里没有直接的方式知道数据的实际大小，
-        // 所以我们依赖于调用者正确地维护数据大小与Tensor形状的一致性
-        std::copy(data, data + size_, data_.get());
+        CHECK(data);
+        std::copy(data, data + size_, this->data_.get());
     }
 
     bool Tensor<float>::empty() const { return !this->data_; }
@@ -165,7 +159,7 @@ namespace infer_neto {
 
     std::vector<uint32_t> Tensor<float>::shapes() const {
         CHECK(this->data_);
-        return {this->channels(), this->rows(), this->cols()};
+        return this->raw_shapes_;
     }
 
     std::unique_ptr<float[]> &Tensor<float>::data() { return this->data_; }

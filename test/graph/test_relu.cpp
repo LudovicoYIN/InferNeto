@@ -1,9 +1,9 @@
 //
 // Created by fss on 23-6-25.
 //
-#include "layer/abstract/layer_factory.hpp"
+#include "node/abstract/node_factory.hpp"
 #include <gtest/gtest.h>
-using namespace kuiper_infer;
+using namespace infer_neto;
 
 static LayerRegisterer::CreateRegistry *RegistryGlobal() {
   static LayerRegisterer::CreateRegistry *kRegistry = new LayerRegisterer::CreateRegistry();
@@ -12,7 +12,7 @@ static LayerRegisterer::CreateRegistry *RegistryGlobal() {
 }
 
 TEST(test_registry, registry1) {
-  using namespace kuiper_infer;
+  using namespace infer_neto;
   LayerRegisterer::CreateRegistry *registry1 = RegistryGlobal();
   LayerRegisterer::CreateRegistry *registry2 = RegistryGlobal();
 
@@ -32,7 +32,7 @@ ParseParameterAttrStatus MyTestCreator(
 }
 
 TEST(test_registry, registry2) {
-  using namespace kuiper_infer;
+  using namespace infer_neto;
   LayerRegisterer::CreateRegistry registry1 = LayerRegisterer::Registry();
   LayerRegisterer::CreateRegistry registry2 = LayerRegisterer::Registry();
   ASSERT_EQ(registry1, registry2);
@@ -73,9 +73,12 @@ TEST(test_registry, create_layer_reluforward) {
 
   sftensor input_tensor = std::make_shared<ftensor>(3, 4, 4);
   input_tensor->Rand();
-  input_tensor->data() -= 0.5f;
-
-  LOG(INFO) << input_tensor->data();
+//  input_tensor -= 0.5f;
+    float * data = input_tensor->raw_ptr();
+    for (uint32_t i = 0; i < input_tensor->size(); i++) {
+        data[i] -= 0.5f;
+    }
+  input_tensor->Show();
 
   std::vector<sftensor> inputs(1);
   std::vector<sftensor> outputs(1);
@@ -83,6 +86,6 @@ TEST(test_registry, create_layer_reluforward) {
   layer->Forward(inputs, outputs);
 
   for (const auto &output : outputs) {
-    output->Show();
+     output->Show();
   }
 }

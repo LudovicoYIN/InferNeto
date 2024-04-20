@@ -5,53 +5,54 @@
 #include "data/cpu/tensor_util.hpp"
 
 namespace infer_neto {
-RuntimeOperator::~RuntimeOperator() {
-  for (auto& [_, param] : this->params) {
-    if (param != nullptr) {
-      delete param;
-      param = nullptr;
-    }
-  }
-}
-void RuntimeOperatorUtils::InitOperatorInput(
-        const std::vector<std::shared_ptr<RuntimeOperator>> &operators) {
-    if (operators.empty()) {
-        LOG(ERROR) << "Operators for init input shapes is empty!";
-        return;
+    RuntimeOperator::~RuntimeOperator() {
+        for (auto &[_, param] : this->params) {
+            if (param != nullptr) {
+                delete param;
+                param = nullptr;
+            }
+        }
     }
 
-    for (const auto &op : operators) {
-        if (op->input_operands.empty()) {
-            continue;
-        } else {
-            const std::map<std::string, std::shared_ptr<RuntimeOperand>> &
-                    input_operands_map = op->input_operands;
-            // 初始化operator的输入空间
-            for (const auto &[_, input_operand] : input_operands_map) {
-                const auto &type = input_operand->type;
-                CHECK(type == RuntimeDataType::kTypeFloat32)
-                                << "The graph only support float32 yet!";
-                const auto &input_operand_shape = input_operand->shapes;
-                // 得到需要初始化的空间
-                auto &input_datas = input_operand->datas;
+    void RuntimeOperatorUtils::InitOperatorInput(
+            const std::vector<std::shared_ptr<RuntimeOperator>> &operators) {
+        if (operators.empty()) {
+            LOG(ERROR) << "Operators for init input shapes is empty!";
+            return;
+        }
 
-                CHECK(!input_operand_shape.empty());
-                const int32_t batch = input_operand_shape.at(0);
-                CHECK(batch >= 0) << "Dynamic batch size is not supported!";
-                CHECK(input_operand_shape.size() == 2 ||
-                      input_operand_shape.size() == 4 ||
-                      input_operand_shape.size() == 3)
-                                << "Unsupported tensor shape sizes: " << input_operand_shape.size();
+        for (const auto &op : operators) {
+            if (op->input_operands.empty()) {
+                continue;
+            } else {
+                const std::map<std::string, std::shared_ptr<RuntimeOperand>> &
+                        input_operands_map = op->input_operands;
+                // 初始化operator的输入空间
+                for (const auto &[_, input_operand] : input_operands_map) {
+                    const auto &type = input_operand->type;
+                    CHECK(type == RuntimeDataType::kTypeFloat32)
+                                    << "The graph only support float32 yet!";
+                    const auto &input_operand_shape = input_operand->shapes;
+                    // 得到需要初始化的空间
+                    auto &input_datas = input_operand->datas;
 
-                if (!input_datas.empty()) {
-                    CHECK_EQ(input_datas.size(), batch);
-                } else {
-                    input_datas.resize(batch);
+                    CHECK(!input_operand_shape.empty());
+                    const int32_t batch = input_operand_shape.at(0);
+                    CHECK(batch >= 0) << "Dynamic batch size is not supported!";
+                    CHECK(input_operand_shape.size() == 2 ||
+                          input_operand_shape.size() == 4 ||
+                          input_operand_shape.size() == 3)
+                                    << "Unsupported tensor shape sizes: " << input_operand_shape.size();
+
+                    if (!input_datas.empty()) {
+                        CHECK_EQ(input_datas.size(), batch);
+                    } else {
+                        input_datas.resize(batch);
+                    }
                 }
             }
         }
     }
-}
 
     void RuntimeOperatorUtils::InitOperatorOutput(
             const std::vector<pnnx::Operator *> &pnnx_operators,
@@ -96,12 +97,12 @@ void RuntimeOperatorUtils::InitOperatorInput(
                                 operand_shapes.at(1), operand_shapes.at(2), operand_shapes.at(3));
                         output_operand->datas.push_back(output_tensor);
                     } else if (operand_shapes.size() == 2) {
-                        sftensor output_tensor = TensorCreate((uint32_t) operand_shapes.at(1));
+                        sftensor output_tensor = TensorCreate({(uint32_t) operand_shapes.at(1)});
                         output_operand->datas.push_back(output_tensor);
                     } else {
                         // current shape is 3
                         sftensor output_tensor = TensorCreate(
-                                (uint32_t) operand_shapes.at(1), (uint32_t) operand_shapes.at(2));
+                                {(uint32_t) operand_shapes.at(1), (uint32_t) operand_shapes.at(2)});
                         output_operand->datas.push_back(output_tensor);
                     }
                 }
@@ -114,7 +115,7 @@ void RuntimeOperatorUtils::InitOperatorInput(
                 // 逐批次检查输出空间的形状是否合理，如果不合理则进行reshape
                 for (uint32_t b = 0; b < batch; ++b) {
                     sftensor output_tensor = output_tensors->datas.at(b);
-                    const std::vector<uint32_t> &tensor_shapes = output_tensor->shape();
+                    const std::vector<uint32_t> &tensor_shapes = output_tensor->shapes();
                     if (operand_shapes.size() == 4) {
                         if (tensor_shapes.at(0) != operand_shapes.at(1) ||
                             tensor_shapes.at(1) != operand_shapes.at(2) ||
@@ -124,7 +125,7 @@ void RuntimeOperatorUtils::InitOperatorInput(
                             const auto &target_shapes = std::vector<uint32_t>{
                                     (uint32_t) operand_shapes.at(1), (uint32_t) operand_shapes.at(2),
                                     (uint32_t) operand_shapes.at(3)};
-                            output_tensor->reshape(target_shapes);
+                            output_tensor->Reshape(target_shapes);
                         }
                     } else if (operand_shapes.size() == 2) {
                         if (tensor_shapes.at(0) != 1 ||
@@ -134,7 +135,7 @@ void RuntimeOperatorUtils::InitOperatorInput(
                                     << "The shape of tensor do not adapting with output operand";
                             const auto &target_shapes =
                                     std::vector<uint32_t>{(uint32_t) operand_shapes.at(1)};
-                            output_tensor->reshape(target_shapes);
+                            output_tensor->Reshape(target_shapes);
                         }
                     } else {
                         // current shape is 3
@@ -145,12 +146,11 @@ void RuntimeOperatorUtils::InitOperatorInput(
                                     << "The shape of tensor do not adapting with output operand";
                             const auto &target_shapes = std::vector<uint32_t>{
                                     (uint32_t) operand_shapes.at(1), (uint32_t) operand_shapes.at(2)};
-                            output_tensor->reshape(target_shapes);
+                            output_tensor->Reshape(target_shapes);
                         }
                     }
                 }
             }
         }
     }
-
 }  // namespace kuiper_infer

@@ -77,7 +77,7 @@ void ParamLayer::set_weights(const std::vector<float>& weights) {
     const uint32_t end_offset = start_offset + blob_size;
     const auto& sub_values = std::vector<float>{weights.begin() + start_offset,
                                                 weights.begin() + end_offset};
-    this->weights_.at(idx)->fill(sub_values);
+    this->weights_.at(idx)->Fill(sub_values);
   }
 }
 
@@ -99,7 +99,7 @@ void ParamLayer::set_bias(const std::vector<float>& bias) {
     const uint32_t end_offset = start_offset + blob_size;
     const auto& sub_values = std::vector<float>{bias.begin() + start_offset,
                                                 bias.begin() + end_offset};
-    this->bias_.at(idx)->fill(sub_values);
+    this->bias_.at(idx)->Fill(sub_values);
   }
 }
 

@@ -6,28 +6,100 @@
 #include "data/cpu/tensor_util.hpp"
 
 namespace infer_neto {
-std::shared_ptr<Tensor<float>> TensorCreate(uint32_t channels, uint32_t rows,
-                                            uint32_t cols) {
-    // 将 channels, rows, cols 封装在一个 vector 中
-    std::vector<uint32_t> shape = {channels, rows, cols};
+    bool TensorIsSame(const std::shared_ptr<Tensor<float>>& a,
+                      const std::shared_ptr<Tensor<float>>& b, float threshold) {
+        CHECK(a != nullptr);
+        CHECK(b != nullptr);
+        if (a->shapes() != b->shapes()) {
+            return false;
+        }
+        float* a_data = a->data().get();
+        float* b_data = b->data().get();
 
-    // 使用构造好的 shape 向量创建 Tensor 实例
-    // 注意，由于 Tensor<float> 的构造函数接受 std::vector<uint32_t> 作为第一个参数，
-    // 您需要根据您的 Tensor 类构造函数的定义，确保提供适当的第二个参数
-    // 这里示例假设您有一个接受 shape 但不需要初始数据向量的构造函数
-    return std::make_shared<Tensor<float>>(shape);
-}
-std::shared_ptr<Tensor<float>> TensorCreate(uint32_t rows, uint32_t cols) {
-    std::vector<uint32_t> shape = {rows, cols};
-    return std::make_shared<Tensor<float>>(shape);
-}
-std::shared_ptr<Tensor<float>> TensorCreate(uint32_t size) {
-    std::vector<uint32_t> shape = {size};
-    return std::make_shared<Tensor<float>>(shape);
-}
+        for (uint32_t i = 0; i < a->size(); i++) {
+            if (std::abs(a_data[i] - b_data[i]) > threshold) return false;
+        }
+        return true;
+    }
 
-std::shared_ptr<Tensor<float>> TensorCreate(const std::vector<uint32_t> &shapes) {
-    CHECK(shapes.size() == 3);
-    return TensorCreate(shapes.at(0), shapes.at(1), shapes.at(2));
-}
+    void TensorElementAdd(const std::shared_ptr<Tensor<float>>& tensor1,
+                          const std::shared_ptr<Tensor<float>>& tensor2,
+                          const std::shared_ptr<Tensor<float>>& output_tensor) {
+        CHECK(tensor1 != nullptr && tensor2 != nullptr && output_tensor != nullptr);
+        CHECK(tensor1->shapes() == tensor2->shapes()) << "Input tensors must have the same shapes.";
+        CHECK(tensor1->shapes() == output_tensor->shapes()) << "Output tensor must have the same shape as input tensors.";
+
+        const float* data1 = tensor1->data().get();
+        const float* data2 = tensor2->data().get();
+        float* output_data = output_tensor->data().get();
+
+        for (size_t i = 0; i < tensor1->size(); ++i) {
+            output_data[i] = data1[i] + data2[i];
+        }
+    }
+
+    void TensorElementMultiply(
+            const std::shared_ptr<Tensor<float>>& tensor1,
+            const std::shared_ptr<Tensor<float>>& tensor2,
+            const std::shared_ptr<Tensor<float>>& output_tensor) {
+        CHECK(tensor1 != nullptr && tensor2 != nullptr && output_tensor != nullptr);
+        CHECK(tensor1->shapes() == tensor2->shapes()) << "Input tensors must have the same shapes.";
+        CHECK(tensor1->shapes() == output_tensor->shapes()) << "Output tensor must have the same shape as input tensors.";
+
+        const float* data1 = tensor1->data().get();
+        const float* data2 = tensor2->data().get();
+        float* output_data = output_tensor->data().get();
+
+        for (size_t i = 0; i < tensor1->size(); ++i) {
+            output_data[i] = data1[i] * data2[i];
+        }
+    }
+
+    std::shared_ptr<Tensor<float>> TensorElementAdd(
+            const std::shared_ptr<Tensor<float>>& tensor1,
+            const std::shared_ptr<Tensor<float>>& tensor2) {
+        CHECK(tensor1 != nullptr && tensor2 != nullptr);
+        CHECK(tensor1->shapes() == tensor2->shapes()) << "Input tensors must have the same shapes.";
+        sftensor output_tensor = TensorCreate(tensor1->shapes());
+        const float* data1 = tensor1->data().get();
+        const float* data2 = tensor2->data().get();
+        float* output_data = output_tensor->data().get();
+
+        for (size_t i = 0; i < tensor1->size(); ++i) {
+            output_data[i] = data1[i] + data2[i];
+        }
+        return output_tensor;
+    }
+
+    std::shared_ptr<Tensor<float>> TensorElementMultiply(
+            const std::shared_ptr<Tensor<float>>& tensor1,
+            const std::shared_ptr<Tensor<float>>& tensor2) {
+        CHECK(tensor1 != nullptr && tensor2 != nullptr);
+        CHECK(tensor1->shapes() == tensor2->shapes()) << "Input tensors must have the same shapes.";
+        sftensor output_tensor = TensorCreate(tensor1->shapes());
+        const float* data1 = tensor1->data().get();
+        const float* data2 = tensor2->data().get();
+        float* output_data = output_tensor->data().get();
+
+        for (size_t i = 0; i < tensor1->size(); ++i) {
+            output_data[i] = data1[i] * data2[i];
+        }
+        return output_tensor;
+    }
+
+    std::shared_ptr<Tensor<float>> TensorCreate(uint32_t channels, uint32_t rows,
+                                                uint32_t cols) {
+        return std::make_shared<Tensor<float>>(channels, rows, cols);
+    }
+
+    std::shared_ptr<Tensor<float>> TensorCreate(
+            const std::vector<uint32_t>& shapes) {
+        CHECK(shapes.size() == 3);
+        return TensorCreate(shapes.at(0), shapes.at(1), shapes.at(2));
+    }
+
+    std::shared_ptr<Tensor<float>> TensorClone(
+            const std::shared_ptr<Tensor<float>>& tensor) {
+        return std::make_shared<Tensor<float>>(*tensor);
+    }
 }
