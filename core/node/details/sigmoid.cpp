@@ -25,9 +25,8 @@
 #include <cmath>
 
 namespace infer_neto {
-InferStatus SigmoidLayer::Forward(
-    const std::vector<std::shared_ptr<Tensor<float>>> &inputs,
-    std::vector<std::shared_ptr<Tensor<float>>> &outputs) {
+InferStatus SigmoidLayer::Forward(const std::vector<std::shared_ptr<Tensor<float>>> &inputs,
+                                  std::vector<std::shared_ptr<Tensor<float>>> &outputs) {
   if (inputs.empty()) {
     LOG(ERROR) << "The input tensor array in the sigmoid layer is empty";
     return InferStatus::kInferFailedInputEmpty;

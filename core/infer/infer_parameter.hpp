@@ -19,62 +19,90 @@ namespace infer_neto {
  * 6.string array
  * 7.float array
  */
-struct RuntimeParameter { /// 计算节点中的参数信息
-  virtual ~RuntimeParameter() = default;
+    struct RuntimeParameter {  /// 计算节点中的参数信息
+        virtual ~RuntimeParameter() = default;
 
-  explicit RuntimeParameter(RuntimeParameterType type = RuntimeParameterType::kParameterUnknown) : type(type) {
+        explicit RuntimeParameter(
+                RuntimeParameterType type = RuntimeParameterType::kParameterUnknown)
+                : type(type) {}
+        RuntimeParameterType type = RuntimeParameterType::kParameterUnknown;
+    };
 
-  }
-  RuntimeParameterType type = RuntimeParameterType::kParameterUnknown;
-};
+    struct RuntimeParameterInt : public RuntimeParameter {
+        RuntimeParameterInt()
+                : RuntimeParameter(RuntimeParameterType::kParameterInt) {}
 
-struct RuntimeParameterInt : public RuntimeParameter {
-  RuntimeParameterInt() : RuntimeParameter(RuntimeParameterType::kParameterInt) {
+        explicit RuntimeParameterInt(int param_value)
+                : RuntimeParameter(RuntimeParameterType::kParameterInt),
+                  value(param_value) {}
 
-  }
-  int value = 0;
-};
+        int value = 0;
+    };
 
-struct RuntimeParameterFloat : public RuntimeParameter {
-  RuntimeParameterFloat() : RuntimeParameter(RuntimeParameterType::kParameterFloat) {
+    struct RuntimeParameterFloat : public RuntimeParameter {
+        RuntimeParameterFloat()
+                : RuntimeParameter(RuntimeParameterType::kParameterFloat) {}
 
-  }
-  float value = 0.f;
-};
+        explicit RuntimeParameterFloat(float param_value)
+                : RuntimeParameter(RuntimeParameterType::kParameterFloat),
+                  value(param_value) {}
 
-struct RuntimeParameterString : public RuntimeParameter {
-  RuntimeParameterString() : RuntimeParameter(RuntimeParameterType::kParameterString) {
+        float value = 0.f;
+    };
 
-  }
-  std::string value;
-};
+    struct RuntimeParameterString : public RuntimeParameter {
+        RuntimeParameterString()
+                : RuntimeParameter(RuntimeParameterType::kParameterString) {}
 
-struct RuntimeParameterIntArray : public RuntimeParameter {
-  RuntimeParameterIntArray() : RuntimeParameter(RuntimeParameterType::kParameterIntArray) {
+        explicit RuntimeParameterString(std::string param_value)
+                : RuntimeParameter(RuntimeParameterType::kParameterString),
+                  value(std::move(param_value)) {}
 
-  }
-  std::vector<int> value;
-};
+        std::string value;
+    };
 
-struct RuntimeParameterFloatArray : public RuntimeParameter {
-  RuntimeParameterFloatArray() : RuntimeParameter(RuntimeParameterType::kParameterFloatArray) {
+    struct RuntimeParameterIntArray : public RuntimeParameter {
+        RuntimeParameterIntArray()
+                : RuntimeParameter(RuntimeParameterType::kParameterIntArray) {}
 
-  }
-  std::vector<float> value;
-};
+        explicit RuntimeParameterIntArray(std::vector<int> param_value)
+                : RuntimeParameter(RuntimeParameterType::kParameterIntArray),
+                  value(std::move(param_value)) {}
 
-struct RuntimeParameterStringArray : public RuntimeParameter {
-  RuntimeParameterStringArray() : RuntimeParameter(RuntimeParameterType::kParameterStringArray) {
+        std::vector<int> value;
+    };
 
-  }
-  std::vector<std::string> value;
-};
+    struct RuntimeParameterFloatArray : public RuntimeParameter {
+        RuntimeParameterFloatArray()
+                : RuntimeParameter(RuntimeParameterType::kParameterFloatArray) {}
 
-struct RuntimeParameterBool : public RuntimeParameter {
-  RuntimeParameterBool() : RuntimeParameter(RuntimeParameterType::kParameterBool) {
+        explicit RuntimeParameterFloatArray(std::vector<float> param_value)
+                : RuntimeParameter(RuntimeParameterType::kParameterFloatArray),
+                  value(std::move(param_value)) {}
 
-  }
-  bool value = false;
-};
+        std::vector<float> value;
+    };
+
+    struct RuntimeParameterStringArray : public RuntimeParameter {
+        RuntimeParameterStringArray()
+                : RuntimeParameter(RuntimeParameterType::kParameterStringArray) {}
+
+        explicit RuntimeParameterStringArray(std::vector<std::string> param_value)
+                : RuntimeParameter(RuntimeParameterType::kParameterStringArray),
+                  value(std::move(param_value)) {}
+
+        std::vector<std::string> value;
+    };
+
+    struct RuntimeParameterBool : public RuntimeParameter {
+        RuntimeParameterBool()
+                : RuntimeParameter(RuntimeParameterType::kParameterBool) {}
+
+        explicit RuntimeParameterBool(bool param_value)
+                : RuntimeParameter(RuntimeParameterType::kParameterBool),
+                  value(param_value) {}
+
+        bool value = false;
+    };
 }
 #endif //INFERNETO_INFER_PARAMETER_HPP_

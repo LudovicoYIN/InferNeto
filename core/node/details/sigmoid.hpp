@@ -21,8 +21,8 @@
     
 // Created by fss on 22-11-18.
 
-#ifndef KUIPER_INFER_SOURCE_LAYER_BINOCULAR_SIGMOID_HPP_
-#define KUIPER_INFER_SOURCE_LAYER_BINOCULAR_SIGMOID_HPP_
+#ifndef INFERNETO_SIGMOID_HPP_
+#define INFERNETO_SIGMOID_HPP_
 #include "node/abstract/non_param_node.hpp"
 namespace infer_neto {
 class SigmoidLayer : public NonParamLayer {
@@ -36,5 +36,5 @@ class SigmoidLayer : public NonParamLayer {
       const std::shared_ptr<RuntimeOperator>& op,
       std::shared_ptr<Layer>& sigmoid_layer);
 };
-}  // namespace kuiper_infer
-#endif  // KUIPER_INFER_SOURCE_LAYER_BINOCULAR_SIGMOID_HPP_
+}  // namespace infer_neto
+#endif  // INFERNETO_SIGMOID_HPP_

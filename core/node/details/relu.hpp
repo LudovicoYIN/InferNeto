@@ -21,8 +21,8 @@
     
 // Created by fss on 22-11-18.
 
-#ifndef KUIPER_INFER_SOURCE_LAYER_BINOCULAR_RELU_HPP_
-#define KUIPER_INFER_SOURCE_LAYER_BINOCULAR_RELU_HPP_
+#ifndef INFERNETO_RELU_HPP_
+#define INFERNETO_RELU_HPP_
 #include "node/abstract/non_param_node.hpp"
 namespace infer_neto {
 class ReluLayer : public NonParamLayer {
@@ -36,5 +36,5 @@ class ReluLayer : public NonParamLayer {
       const std::shared_ptr<RuntimeOperator>& op,
       std::shared_ptr<Layer>& relu_layer);
 };
-}  // namespace kuiper_infer
-#endif  // KUIPER_INFER_SOURCE_LAYER_BINOCULAR_RELU_HPP_
+}  // namespace infer_neto
+#endif  // INFERNETO_RELU_HPP_
