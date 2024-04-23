@@ -162,6 +162,44 @@ namespace infer_neto {
         return this->raw_shapes_;
     }
 
+    Tensor<float> Tensor<float>::Multiply(const Tensor<float>& other) const {
+        // 检查是否为有效的矩阵乘法条件
+        CHECK(this->cols() == other.rows()) << "Matrix multiplication dimension mismatch.";
+
+        // 根据张量的维度确定输出的行数和列数
+        uint32_t out_rows = (this->raw_shapes_.size() > 1) ? this->rows() : 1;
+        uint32_t out_cols = other.cols();
+
+        // 初始化结果张量
+        Tensor<float> result(1, out_rows, out_cols);
+
+        // 执行矩阵乘法
+        for (uint32_t i = 0; i < out_rows; i++) {
+            for (uint32_t j = 0; j < out_cols; j++) {
+                float sum = 0;
+                for (uint32_t k = 0; k < this->cols(); k++) {
+                    float a = (this->raw_shapes_.size() > 1) ? this->at(0, i, k) : this->at(0, 0, k);
+                    sum += a * other.at(0, k, j);
+                }
+                result.at(0, i, j) = sum;
+            }
+        }
+        return result;
+    }
+    void Tensor<float>::AddBias(const Tensor<float>& bias) {
+        CHECK(bias.raw_shapes_.size() == 1 || (bias.raw_shapes_.size() == 2 && bias.rows() == 1))
+                        << "Bias must be a 1D tensor or a 1-row 2D tensor.";
+        CHECK(this->cols() == bias.size()) << "Dimension mismatch: bias must match the number of columns.";
+
+        uint32_t rows = this->rows();
+        uint32_t cols = this->cols();
+        for (uint32_t i = 0; i < rows; i++) {
+            for (uint32_t j = 0; j < cols; j++) {
+                this->at(0, i, j) += bias.at(0, 0, j);  // 处理假设为一行的情况
+            }
+        }
+    }
+
     std::unique_ptr<float[]> &Tensor<float>::data() { return this->data_; }
 
     const std::unique_ptr<float[]> &Tensor<float>::data() const { return this->data_; }

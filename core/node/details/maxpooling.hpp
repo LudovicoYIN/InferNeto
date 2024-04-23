@@ -8,7 +8,7 @@
 namespace infer_neto {
 class MaxPoolingLayer : public NonParamLayer {
 public:
-    MaxPoolingLayer(uint32_t padding_h,
+    explicit MaxPoolingLayer(uint32_t padding_h,
                     uint32_t padding_w,
                     uint32_t pooling_size_h,
                     uint32_t pooling_size_w,

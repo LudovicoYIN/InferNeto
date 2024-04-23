@@ -239,6 +239,9 @@ namespace infer_neto {
          * @return 第index个矩阵的起始地址
          */
         float *matrix_raw_ptr(uint32_t index);
+        Tensor<float> Multiply(const Tensor<float> &other) const;
+
+        void AddBias(const Tensor<float> &bias);
 
     private:
         std::vector<uint32_t> raw_shapes_;        // 存储形状
@@ -247,6 +250,9 @@ namespace infer_neto {
         std::uint32_t size_{};
         // 计算总步长
         void calculateStrides();
+
+
+
     };
 
     using ftensor = Tensor<float>;

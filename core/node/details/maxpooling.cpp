@@ -99,7 +99,7 @@ InferStatus MaxPoolingLayer::Forward(const std::vector<std::shared_ptr<Tensor<fl
                             uint32_t current_row = row + h - padding_h_;
                             uint32_t current_col = col + w - padding_w_;
                             float current_value = std::numeric_limits<float>::lowest();  // Assume padding with lowest value
-                            if (current_row >= 0 && current_row < input_height && current_col >= 0 && current_col < input_width) {
+                            if (current_row < input_height && current_col < input_width) {
                                 // Convert 2D index to 1D index for the flattened array access
                                 current_value = input_channel_data[current_row * input_width + current_col];
                             }
