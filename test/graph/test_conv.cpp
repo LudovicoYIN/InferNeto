@@ -10,44 +10,44 @@ using namespace infer_neto;
 
 TEST(test_registry, create_layer_convforward) {
     const uint32_t batch_size = 1;
-    std::vector<sftensor> inputs(batch_size);
-    std::vector<sftensor> outputs(batch_size);
+    std::vector<std::shared_ptr<Tensor<float>>> inputs(batch_size);
+    std::vector<std::shared_ptr<Tensor<float>>> outputs(batch_size);
 
     const uint32_t in_channel = 2;
+    const uint32_t input_height = 4;
+    const uint32_t input_width = 4;
     for (uint32_t i = 0; i < batch_size; ++i) {
-    sftensor input = std::make_shared<ftensor>(in_channel, 4, 4);
-    float * data = input->slice(0);
-    for (int t = 1; t <= 16; t++) {
-        data[t] = float (t);
+        auto input = std::make_shared<Tensor<float>>(in_channel, input_height, input_width);
+        std::vector<float> data = {
+                1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
+                1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16
+        };
+        input->Fill(data);
+        inputs[i] = input;
     }
-    float * data2 = input->slice(1);
-      for (int t = 1; t <= 16; t++) {
-          data2[t] = float (t);
-      }
-    inputs.at(i) = input;
-    }
+
     const uint32_t kernel_h = 3;
     const uint32_t kernel_w = 3;
     const uint32_t stride_h = 1;
     const uint32_t stride_w = 1;
     const uint32_t kernel_count = 2;
-    std::vector<sftensor> weights;
+    std::vector<std::shared_ptr<Tensor<float>>> weights;
     for (uint32_t i = 0; i < kernel_count; ++i) {
-    sftensor kernel = std::make_shared<ftensor>(in_channel, kernel_h, kernel_w);
-    float * data3 = kernel->slice(0);
+        auto kernel = std::make_shared<Tensor<float>>(in_channel, kernel_h, kernel_w);
+        std::vector<float> kernel_data = {
+                1, 2, 3, 4, 5, 6, 7, 8, 9,
+                1, 2, 3, 4, 5, 6, 7, 8, 9
+        };
+        kernel->Fill(kernel_data);
+        weights.push_back(kernel);
+    }
 
-    for (int t = 1; t <= 9; t++) {
-        data3[t] = float (t);
+    ConvolutionLayer conv_layer(kernel_count, in_channel, kernel_h, kernel_w, 0, 0, stride_h, stride_w, 1, false);
+    conv_layer.set_weights(weights);
+    conv_layer.Forward(inputs, outputs);
+
+    for (auto& output : outputs) {
+        if (output) output->Show();
+        else std::cout << "Output tensor is nullptr." << std::endl;
     }
-    float * data4 = kernel->slice(1);
-    for (int t = 1; t <= 9; t++) {
-        data4[t] = float (t);
-    }
-    weights.push_back(kernel);
-  }
-  ConvolutionLayer conv_layer(kernel_count, in_channel, kernel_h, kernel_w, 0,
-                              0, stride_h, stride_w, 1, false);
-  conv_layer.set_weights(weights);
-  conv_layer.Forward(inputs, outputs);
-  outputs.at(0)->Show();
 }

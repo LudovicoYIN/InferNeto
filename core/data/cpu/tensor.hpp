@@ -239,9 +239,9 @@ namespace infer_neto {
          * @return 第index个矩阵的起始地址
          */
         float *matrix_raw_ptr(uint32_t index);
-        Tensor<float> Multiply(const Tensor<float> &other) const;
+        Tensor<float> Gemm(const Tensor<float> &other) const;
 
-        void AddBias(const Tensor<float> &bias);
+        void Add(const Tensor<float> &bias);
 
     private:
         std::vector<uint32_t> raw_shapes_;        // 存储形状

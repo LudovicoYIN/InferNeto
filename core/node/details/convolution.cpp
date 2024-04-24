@@ -4,6 +4,7 @@
 
 
 #include <cmath>
+#include <armadillo>
 #include "convolution.hpp"
 #include "node/abstract/node_factory.hpp"
 #include "infer/infer_ir.hpp"
@@ -103,9 +104,7 @@ InferStatus ConvolutionLayer::Forward(const std::vector<std::shared_ptr<Tensor<f
                                             "matrix and input tensor do not match";
 
         for (uint32_t g = 0; g < groups_; ++g) {
-            input->Show();
             Tensor<float> input_matrix = Im2Col(input, kernel_w, kernel_h, input->cols(), input->rows(), input_c_group, g, row_len, col_len);
-            input_matrix.Show();
             std::shared_ptr<Tensor<float>> output_tensor = outputs.at(i);
             if (output_tensor == nullptr || output_tensor->empty()) {
                 output_tensor = std::make_shared<Tensor<float>>(kernel_count, output_h, output_w);
@@ -134,41 +133,40 @@ InferStatus ConvolutionLayer::Forward(const std::vector<std::shared_ptr<Tensor<f
     return InferStatus::kInferSuccess;
 }
 
-    Tensor<float> ConvolutionLayer::Im2Col(sftensor input, uint32_t kernel_w,
-                                           uint32_t kernel_h, uint32_t input_w,
-                                           uint32_t input_h, uint32_t input_c_group,
-                                           uint32_t group, uint32_t row_len,
-                                           uint32_t col_len) const {
+Tensor<float> ConvolutionLayer::Im2Col(sftensor input, uint32_t kernel_w,
+                                       uint32_t kernel_h, uint32_t input_w,
+                                       uint32_t input_h, uint32_t input_c_group,
+                                       uint32_t group, uint32_t row_len,
+                                       uint32_t col_len) const {
 
-        Tensor<float> input_matrix(input_c_group * row_len, col_len);
-        const uint32_t input_padded_h = input_h + 2 * padding_h_;
-        const uint32_t input_padded_w = input_w + 2 * padding_w_;
-        const float padding_value = 0.f;
+    Tensor<float> input_matrix(input_c_group * row_len, col_len);
+    const uint32_t input_padded_h = input_h + 2 * padding_h_;
+    const uint32_t input_padded_w = input_w + 2 * padding_w_;
+    const float padding_value = 0.f;
 
-        for (uint32_t ic = 0; ic < input_c_group; ++ic) {
-            float* input_channel_ptr = input->slice(ic + group * input_c_group);
-            uint32_t current_col = 0;
+    for (uint32_t ic = 0; ic < input_c_group; ++ic) {
+        uint32_t current_col = 0;
+        for (uint32_t r = 0; r < input_padded_h - kernel_h + 1; r += stride_h_) {
             for (uint32_t w = 0; w < input_padded_w - kernel_w + 1; w += stride_w_) {
-                for (uint32_t r = 0; r < input_padded_h - kernel_h + 1; r += stride_h_) {
+                for (uint32_t kh = 0; kh < kernel_h; ++kh) {
                     for (uint32_t kw = 0; kw < kernel_w; ++kw) {
-                        for (uint32_t kh = 0; kh < kernel_h; ++kh) {
-                            uint32_t col_index = kh * kernel_w + kw;
+                        uint32_t col_index = kh * kernel_w + kw;
+                        if ((r + kh >= padding_h_ && w + kw >= padding_w_) && (r + kh < input_h + padding_h_ && w + kw < input_w + padding_w_)) {
                             uint32_t input_row = r + kh - padding_h_;
                             uint32_t input_col = w + kw - padding_w_;
-                            if (input_row >= 0 && input_row < input_h && input_col >= 0 && input_col < input_w) {
-                                float val = input->at(ic + group * input_c_group, input_row, input_col);
-                                input_matrix.at(0, col_index, current_col) = val;
-                            } else {
-                                input_matrix.at(0, col_index, current_col) = padding_value;
-                            }
+                            float val = input->at(ic + group * input_c_group, input_row, input_col);
+                            input_matrix.at(0, col_index + ic * row_len, current_col) = val;
+                        } else {
+                            input_matrix.at(0, col_index + ic * row_len, current_col) = padding_value;
                         }
                     }
-                    current_col++;
                 }
+                current_col++;
             }
         }
-        return input_matrix;
     }
+    return input_matrix;
+}
 
 void ConvolutionLayer::ConvGemmBias(const Tensor<float>& input_matrix,
                                     const std::shared_ptr<Tensor<float>>& output_tensor,
@@ -176,21 +174,25 @@ void ConvolutionLayer::ConvGemmBias(const Tensor<float>& input_matrix,
                                     uint32_t kernel_count_group, const Tensor<float>& kernel,
                                     uint32_t output_w, uint32_t output_h) const {
 
+
     // 执行矩阵乘法
-    Tensor<float> output = kernel.Multiply(input_matrix);
+    Tensor<float> output = kernel.Gemm(input_matrix);
 
     // 添加偏置（如果使用）
     if (this->use_bias_ && !this->bias_.empty()) {
         std::shared_ptr<Tensor<float>> bias = this->bias_.at(kernel_index);
         if (bias && !bias->empty()) {
-            output.AddBias(*bias);  // 使用前面定义的AddBias方法
+            output.Add(*bias);  // 使用前面定义的AddBias方法
         } else {
             LOG(FATAL) << "Bias tensor is empty or nullptr";
         }
     }
-
+    output.Show();
     // 将计算结果复制回输出张量
-    *output_tensor = std::move(output); // 假设Tensor支持移动赋值
+    float* dest = output_tensor->slice(kernel_index + group * kernel_count_group);
+    const float* src = output.raw_ptr();
+    std::memcpy(dest, src, output.size() * sizeof(float));
+
 }
 
 void ConvolutionLayer::InitIm2ColWeight() {
@@ -216,7 +218,6 @@ void ConvolutionLayer::InitIm2ColWeight() {
         Tensor<float> kernel_matrix_c(row_len * kernel_c);
 
         for (uint32_t k = 0; k < kernel_count_group; ++k) {
-
             const std::shared_ptr<Tensor<float>>& kernel = this->weights_.at(k);
             for (uint32_t ic = 0; ic < kernel->channels(); ++ic) {
                 memcpy(kernel_matrix_c.raw_ptr() + row_len * ic,
@@ -230,13 +231,11 @@ void ConvolutionLayer::InitIm2ColWeight() {
         const uint32_t kernel_count_group = kernel_count / groups_;
         std::vector<Tensor<float>> kernel_matrix_arr;
         for (uint32_t g = 0; g < groups_; ++g) {
-            Tensor<float> kernel_matrix_c(1, row_len * kernel_c);
+            Tensor<float> kernel_matrix_c(row_len * kernel_c);
             for (uint32_t k = 0; k < kernel_count_group; ++k) {
-                const std::shared_ptr<Tensor<float>>& kernel =
-                        this->weights_.at(k + g * kernel_count_group);
+                const std::shared_ptr<Tensor<float>>& kernel = this->weights_.at(k + g * kernel_count_group);
                 for (uint32_t ic = 0; ic < kernel->channels(); ++ic) {
-                    memcpy(kernel_matrix_c.raw_ptr() + row_len * ic,
-                           kernel->matrix_raw_ptr(ic), row_len * sizeof(float));
+                    memcpy(kernel_matrix_c.raw_ptr() + row_len * ic,kernel->matrix_raw_ptr(ic), row_len * sizeof(float));
                 }
                 kernel_matrix_arr.emplace_back(kernel_matrix_c);
             }
