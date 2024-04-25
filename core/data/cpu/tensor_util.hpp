@@ -28,6 +28,12 @@ namespace infer_neto {
             const std::shared_ptr<Tensor<float>>& tensor2);
 
 /**
+ * 张量Sin
+ * @param tensor 输入张量
+ * @return 张量相加的结果
+ */
+    std::shared_ptr<Tensor<float>> TensorElementSin(const std::shared_ptr<Tensor<float>>& tensor);
+/**
  * 张量相加
  * @param tensor1 输入张量1
  * @param tensor2 输入张量2
@@ -67,19 +73,19 @@ namespace infer_neto {
     std::shared_ptr<Tensor<float>> TensorCreate(uint32_t channels, uint32_t rows,
                                                 uint32_t cols);
 
-/**
- * 创建一个张量
- * @param shapes 张量的形状
- * @return 创建后的张量
- */
+    /**
+     * 创建一个张量
+     * @param shapes 张量的形状
+     * @return 创建后的张量
+     */
     std::shared_ptr<Tensor<float>> TensorCreate(
             const std::vector<uint32_t>& shapes);
 
-/**
- * 返回一个深拷贝后的张量
- * @param 待Clone的张量
- * @return 新的张量
- */
+    /**
+     * 返回一个深拷贝后的张量
+     * @param 待Clone的张量
+     * @return 新的张量
+     */
     std::shared_ptr<Tensor<float>> TensorClone(
             const std::shared_ptr<Tensor<float>>& tensor);
 

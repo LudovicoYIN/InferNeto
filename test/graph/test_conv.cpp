@@ -51,3 +51,48 @@ TEST(test_registry, create_layer_convforward) {
         else std::cout << "Output tensor is nullptr." << std::endl;
     }
 }
+
+TEST(test_registry, create_layer_groupconvforward) {
+    const uint32_t batch_size = 1;
+    std::vector<std::shared_ptr<Tensor<float>>> inputs(batch_size);
+    std::vector<std::shared_ptr<Tensor<float>>> outputs(batch_size);
+
+    const uint32_t in_channel = 4;  // 增加通道数以支持分组
+    const uint32_t groups = 2;      // 使用 2 组
+    for (uint32_t i = 0; i < batch_size; ++i) {
+        auto input = std::make_shared<Tensor<float>>(in_channel, 4, 4);
+        std::vector<float> data = {
+                1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
+                1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
+                1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
+                1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16
+        };
+        input->Fill(data);
+        inputs[i] = input;
+    }
+
+    const uint32_t kernel_h = 3;
+    const uint32_t kernel_w = 3;
+    const uint32_t stride_h = 1;
+    const uint32_t stride_w = 1;
+    const uint32_t kernel_count = 4;  // 输出通道数为 4
+    std::vector<std::shared_ptr<Tensor<float>>> weights;
+    for (uint32_t i = 0; i < kernel_count; ++i) {
+        auto kernel = std::make_shared<Tensor<float>>(2, kernel_h, kernel_w);  // 每组处理 2 个通道
+        std::vector<float> kernel_data = {
+                1, 2, 3, 4, 5, 6, 7, 8, 9,
+                1, 2, 3, 4, 5, 6, 7, 8, 9
+        };
+        kernel->Fill(kernel_data);
+        weights.push_back(kernel);
+    }
+
+    ConvolutionLayer conv_layer(kernel_count, in_channel, kernel_h, kernel_w, 0, 0, stride_h, stride_w, groups, false);
+    conv_layer.set_weights(weights);
+    conv_layer.Forward(inputs, outputs);
+
+    for (auto& output : outputs) {
+        if (output) output->Show();
+        else std::cout << "Output tensor is nullptr." << std::endl;
+    }
+}

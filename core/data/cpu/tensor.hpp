@@ -250,9 +250,6 @@ namespace infer_neto {
         std::uint32_t size_{};
         // 计算总步长
         void calculateStrides();
-
-
-
     };
 
     using ftensor = Tensor<float>;

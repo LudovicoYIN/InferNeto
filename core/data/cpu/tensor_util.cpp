@@ -2,6 +2,7 @@
 // Created by hanke on 2024/4/3.
 //
 #include <glog/logging.h>
+#include <valarray>
 #include "data/cpu/tensor.hpp"
 #include "data/cpu/tensor_util.hpp"
 
@@ -53,6 +54,19 @@ namespace infer_neto {
         for (size_t i = 0; i < tensor1->size(); ++i) {
             output_data[i] = data1[i] * data2[i];
         }
+    }
+
+    std::shared_ptr<Tensor<float>> TensorElementSin(
+            const std::shared_ptr<Tensor<float>>& tensor) {
+        CHECK(tensor != nullptr);
+        sftensor output_tensor = TensorCreate(tensor->shapes());
+        const float* data = tensor->data().get();
+        float* output_data = output_tensor->data().get();
+
+        for (size_t i = 0; i < tensor->size(); ++i) {
+            output_data[i] = std::sin(data[i]);
+        }
+        return output_tensor;
     }
 
     std::shared_ptr<Tensor<float>> TensorElementAdd(
