@@ -166,36 +166,45 @@ namespace infer_neto {
         // 检查是否为有效的矩阵乘法条件
         CHECK(this->cols() == other.rows()) << "Matrix multiplication dimension mismatch.";
 
-        // 根据张量的维度确定输出的行数和列数
+        // 初始化结果张量
+        uint32_t batch_size = this->channels(); // 批次大小
         uint32_t out_rows = this->rows();
         uint32_t out_cols = other.cols();
-
-        // 初始化结果张量
-        Tensor<float> result(1, out_rows, out_cols);
+        Tensor<float> result(batch_size, out_rows, out_cols);
 
         // 执行矩阵乘法
-        for (uint32_t row = 0; row < out_rows; row++) {
-            for (uint32_t col = 0; col < out_cols; col++) {
-                float sum = 0;
-                for (uint32_t this_col = 0; this_col < this->cols(); this_col++) {
-                    float a = this->at(0, row, this_col);
-                    sum += a * other.at(0, this_col, col);
+        for (uint32_t batch = 0; batch < batch_size; batch++) {
+            for (uint32_t row = 0; row < out_rows; row++) {
+                for (uint32_t col = 0; col < out_cols; col++) {
+                    float sum = 0;
+                    for (uint32_t k = 0; k < this->cols(); k++) {
+                        float a = this->at(batch, row, k);
+                        float b = other.at(batch, k, col);
+                        sum += a * b;
+                    }
+                    result.at(batch, row, col) = sum;
                 }
-                result.at(0, row, col) = sum;
             }
         }
+
         return result;
     }
-    void Tensor<float>::Add(const Tensor<float>& bias) {
-        CHECK(bias.raw_shapes_.size() == 1 || (bias.raw_shapes_.size() == 2 && bias.rows() == 1))
-                        << "Bias must be a 1D tensor or a 1-row 2D tensor.";
-        CHECK(this->cols() == bias.size()) << "Dimension mismatch: bias must match the number of columns.";
 
+    void Tensor<float>::Add(const Tensor<float>& bias) {
+        CHECK((bias.raw_shapes_.size() == 2 && bias.rows() == 1) || bias.raw_shapes_.size() == 3)
+                        << "Bias must be a 1-row 2D tensor or a 3D tensor.";
+        CHECK(this->cols() == bias.cols()) << "Dimension mismatch: bias must match the number of columns.";
+
+        uint32_t batch_size = this->channels();
         uint32_t rows = this->rows();
         uint32_t cols = this->cols();
-        for (uint32_t i = 0; i < rows; i++) {
-            for (uint32_t j = 0; j < cols; j++) {
-                this->at(0, i, j) += bias.at(0, 0, j);  // 处理假设为一行的情况
+
+        // 对每个批次、每行进行加法操作
+        for (uint32_t batch = 0; batch < batch_size; batch++) {
+            for (uint32_t row = 0; row < rows; row++) {
+                for (uint32_t col = 0; col < cols; col++) {
+                    this->at(batch, row, col) += bias.at(batch, 0, col);
+                }
             }
         }
     }
