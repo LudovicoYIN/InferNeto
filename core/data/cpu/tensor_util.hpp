@@ -53,31 +53,31 @@ namespace infer_neto {
                                const std::shared_ptr<Tensor<float>>& tensor2,
                                const std::shared_ptr<Tensor<float>>& output_tensor);
 
-/**
- * 张量相乘
- * @param tensor1 输入张量1
- * @param tensor2 输入张量2
- * @return 张量相乘的结果
- */
+    /**
+    * 张量相乘
+    * @param tensor1 输入张量1
+    * @param tensor2 输入张量2
+    * @return 张量相乘的结果
+    */
     std::shared_ptr<Tensor<float>> TensorElementMultiply(
             const std::shared_ptr<Tensor<float>>& tensor1,
             const std::shared_ptr<Tensor<float>>& tensor2);
 
-/**
- * 创建一个张量
- * @param channels 通道数量
- * @param rows 行数
- * @param cols 列数
- * @return 创建后的张量
- */
+    /**
+    * 创建一个张量
+    * @param channels 通道数量
+    * @param rows 行数
+    * @param cols 列数
+    * @return 创建后的张量
+    */
     std::shared_ptr<Tensor<float>> TensorCreate(uint32_t channels, uint32_t rows,
                                                 uint32_t cols);
 
     /**
-     * 创建一个张量
-     * @param shapes 张量的形状
-     * @return 创建后的张量
-     */
+    * 创建一个张量
+    * @param shapes 张量的形状
+    * @return 创建后的张量
+    */
     std::shared_ptr<Tensor<float>> TensorCreate(
             const std::vector<uint32_t>& shapes);
 

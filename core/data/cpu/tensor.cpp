@@ -190,6 +190,14 @@ namespace infer_neto {
         return result;
     }
 
+    void Tensor<float>::AddScalar(float value) {
+        CHECK(this->data_);  // 确保数据不为空
+
+        uint32_t total_elements = this->size();
+        for (uint32_t i = 0; i < total_elements; ++i) {
+            this->data_[i] += value;
+        }
+    }
     void Tensor<float>::Add(const Tensor<float>& bias) {
         CHECK((bias.raw_shapes_.size() == 2 && bias.rows() == 1) || bias.raw_shapes_.size() == 3)
                         << "Bias must be a 1-row 2D tensor or a 3D tensor.";
@@ -407,6 +415,18 @@ namespace infer_neto {
             data[i] -= value;
         }
         return tensor;
+    }
+    void Tensor<float>::NormalizeChannel(uint32_t channel, float mean, float std) {
+        CHECK_LT(channel , channels());
+        float* channel_data = slice(channel);
+        uint32_t area = rows() * cols();
+        for (uint32_t i = 0; i < area; ++i) {
+            channel_data[i] = (channel_data[i] - mean) / std;
+        }
+    }
+
+    void Tensor<float>::Scale(float factor) {
+        Transform([factor](float value) { return value * factor; });
     }
 
 }

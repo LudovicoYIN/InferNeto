@@ -45,17 +45,6 @@ InferStatus LinearLayer::Forward(
 
     uint32_t batch = inputs.size();
     const std::shared_ptr<Tensor<float>>& weight = weights_.front();
-    for (auto i : weight->shapes()) {
-        std::cout << i << " ";
-    }
-    std::cout << std::endl;
-    for (auto i : inputs.at(0)->shapes()) {
-        std::cout << i << " ";
-    }
-    std::cout << std::endl;
-    for (auto i : outputs.at(0)->shapes()) {
-        std::cout << i << " ";
-    }
 
 
     for (uint32_t i = 0; i < batch; ++i) {

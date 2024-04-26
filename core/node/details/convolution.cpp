@@ -182,12 +182,12 @@ void ConvolutionLayer::ConvGemmBias(const Tensor<float>& input_matrix,
     if (this->use_bias_ && !this->bias_.empty()) {
         std::shared_ptr<Tensor<float>> bias = this->bias_.at(kernel_index);
         if (bias && !bias->empty()) {
-            output.Add(*bias);  // 使用前面定义的AddBias方法
+            float bias_value = bias->index(0);
+            output.AddScalar(bias_value);  // 使用前面定义的AddBias方法
         } else {
             LOG(FATAL) << "Bias tensor is empty or nullptr";
         }
     }
-    output.Show();
     // 将计算结果复制回输出张量
     float* dest = output_tensor->slice(kernel_index + group * kernel_count_group);
     const float* src = output.raw_ptr();

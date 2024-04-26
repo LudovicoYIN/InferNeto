@@ -69,6 +69,9 @@ namespace infer_neto {
         static std::shared_ptr<Layer> CreateLayer(
                 const std::shared_ptr<RuntimeOperator> &op);
 
+        std::vector<std::shared_ptr<Tensor<float>>> Forward(
+                const std::vector<std::shared_ptr<Tensor<float>>> &inputs, bool debug);
+
     private:
         /**
          * 初始化kuiper infer计算图节点中的输入操作数
@@ -108,6 +111,15 @@ namespace infer_neto {
 
         void ReverseTopo(const std::shared_ptr<RuntimeOperator> &root_op);
 
+        /**
+       * 探查下一层的计算节点
+       * @param current_op 当前计算节点
+       * @param layer_output_data 当前节点的输出，赋予到下一层计算节点的输入张量中
+       */
+        static void ProbeNextLayer(
+                const std::shared_ptr<RuntimeOperator> &current_op,
+                const std::vector<std::shared_ptr<Tensor<float>>> &layer_output_data);
+
     private:
         enum class GraphState {
             NeedInit = -2,
@@ -134,4 +146,5 @@ namespace infer_neto {
 
         std::unique_ptr<pnnx::Graph> graph_; /// pnnx的graph
     };
+
 } // namespace kuiper_infer

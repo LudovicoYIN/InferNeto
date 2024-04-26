@@ -219,7 +219,8 @@ namespace infer_neto {
          * @param filter 过滤函数
          */
         void Transform(const std::function<float(float)> &filter);
-
+        void NormalizeChannel(uint32_t channel, float mean, float std);
+        void Scale(float factor);
         /**
          * 返回数据的原始指针
          * @return 返回数据的原始指针
@@ -242,7 +243,7 @@ namespace infer_neto {
         Tensor<float> Gemm(const Tensor<float> &other) const;
 
         void Add(const Tensor<float> &bias);
-
+        void AddScalar(float value);
     private:
         std::vector<uint32_t> raw_shapes_;        // 存储形状
         std::vector<uint32_t> strides_;      // 存储步长

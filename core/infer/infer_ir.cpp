@@ -72,9 +72,9 @@ namespace infer_neto {
     }
 
     void RuntimeGraph::InitGraphParams(
-            const std::map<std::string, pnnx::Parameter>& params,
-            const std::shared_ptr<RuntimeOperator>& runtime_operator) {
-        for (const auto& [name, parameter] : params) {
+            const std::map<std::string, pnnx::Parameter> &params,
+            const std::shared_ptr<RuntimeOperator> &runtime_operator) {
+        for (const auto &[name, parameter] : params) {
             const int type = parameter.type;
             switch (type) {
                 case int(RuntimeParameterType::kParameterUnknown): {
@@ -204,11 +204,93 @@ namespace infer_neto {
     }
 
     std::shared_ptr<Layer> RuntimeGraph::CreateLayer(
-            const std::shared_ptr<RuntimeOperator>& op) {
+            const std::shared_ptr<RuntimeOperator> &op) {
         LOG_IF(FATAL, !op) << "Operator is empty!";
         auto layer = LayerRegisterer::CreateLayer(op);
         LOG_IF(FATAL, !layer) << "Layer init failed " << op->type;
         return layer;
+    }
+
+    void RuntimeGraph::ProbeNextLayer(
+            const std::shared_ptr<RuntimeOperator> &current_op,
+            const std::vector<std::shared_ptr<Tensor<float>>> &layer_output_datas) {
+        // 当前节点的后继节点next_ops
+        const auto &next_ops = current_op->output_operators;
+
+        // 对所有后继节点进行遍历
+        for (const auto &[_, next_rt_operator] : next_ops) {
+            // 得到后继节点的输入next_input_operands
+            const auto &next_input_operands = next_rt_operator->input_operands;
+            // 确定后继节点的输入来自于current_op
+            if (next_input_operands.find(current_op->name) != next_input_operands.end()) {
+                // 得到后继节点的关于current_op输出的输入空间 next_input_datas
+                /**
+                * next_input_operands:
+                * {
+                *    输入1 -- current_op.name: current_op对应的输出空间
+                *    输入2 -- other_op.name: other_op对应的输出空间
+                * }
+                */
+                std::vector<std::shared_ptr<ftensor>> &next_input_datas = next_input_operands.at(current_op->name)->datas;
+                CHECK(next_input_datas.size() == layer_output_datas.size());
+                // 将当前current_op的输出赋值到next_input_datas中
+                for (int i = 0; i < next_input_datas.size(); ++i) {
+                    next_input_datas.at(i) = layer_output_datas.at(i);
+                }
+            }
+        }
+    }
+
+    std::vector<std::shared_ptr<Tensor<float>>> RuntimeGraph::Forward(
+            const std::vector<std::shared_ptr<Tensor<float>>>& inputs, bool debug) {
+        // 检查当前的执行图是否已经初始化完毕
+        if (graph_state_ < GraphState::Complete) {
+            LOG(FATAL) << "Graph need be build!";
+        }
+        CHECK(graph_state_ == GraphState::Complete)
+                        << "Graph status error, current state is " << int(graph_state_);
+
+        CHECK(topo_operators_.size() == operators_.size())
+                        << "Build wrong topo queue";
+
+        for (const auto& op : topo_operators_) {
+            op->has_forward = false;
+        }
+
+        for (const auto& current_op : topo_operators_) {
+            std::cout << current_op->type << std::endl;
+            if (current_op->type == "pnnx.Input") {
+                current_op->has_forward = true;
+                ProbeNextLayer(current_op, inputs);
+            } else if (current_op->type == "pnnx.Output") {
+                current_op->has_forward = true;
+                CHECK(current_op->input_operands_seq.size() == 1);
+                current_op->output_operands = current_op->input_operands_seq.front();
+            } else {
+                InferStatus status = current_op->layer->Forward();
+                CHECK(status == InferStatus::kInferSuccess)
+                                << current_op->layer->layer_name()
+                                << " layer forward failed, error code: " << int(status);
+                current_op->has_forward = true;
+                ProbeNextLayer(current_op, current_op->output_operands->datas);
+            }
+        }
+
+        for (const auto& op : topo_operators_) {
+            LOG_IF(FATAL, !op->has_forward)
+                            << "The operator: " << op->name << " has not been forward yet!";
+        }
+
+        if (operators_maps_.find(output_name_) != operators_maps_.end()) {
+            const auto& output_op = operators_maps_.at(output_name_);
+            CHECK(output_op->output_operands != nullptr)
+                            << "Output from" << output_op->name << " is empty";
+            const auto& output_operand = output_op->output_operands;
+            return output_operand->datas;
+        } else {
+            LOG(FATAL) << "Can not find the output operator " << output_name_;
+            return std::vector<std::shared_ptr<Tensor<float>>>{};
+        }
     }
 
     void RuntimeGraph::Build(const std::string &input_name,

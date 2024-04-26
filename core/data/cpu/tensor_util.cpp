@@ -106,10 +106,25 @@ namespace infer_neto {
         return std::make_shared<Tensor<float>>(channels, rows, cols);
     }
 
+    std::shared_ptr<Tensor<float>> TensorCreate(uint32_t rows, uint32_t cols) {
+        return std::make_shared<Tensor<float>>(1, rows, cols);
+    }
+
+    std::shared_ptr<Tensor<float>> TensorCreate(uint32_t size) {
+        return std::make_shared<Tensor<float>>(1, 1, size);
+    }
+
     std::shared_ptr<Tensor<float>> TensorCreate(
             const std::vector<uint32_t>& shapes) {
-        CHECK(shapes.size() == 3);
-        return TensorCreate(shapes.at(0), shapes.at(1), shapes.at(2));
+        CHECK(!shapes.empty() && shapes.size() <= 3);
+        if (shapes.size() == 1) {
+            return std::make_shared<Tensor<float>>(shapes.at(0));
+        } else if (shapes.size() == 2) {
+            return std::make_shared<Tensor<float>>(shapes.at(0), shapes.at(1));
+        } else {
+            return std::make_shared<Tensor<float>>(shapes.at(0), shapes.at(1),
+                                                   shapes.at(2));
+        }
     }
 
     std::shared_ptr<Tensor<float>> TensorClone(
