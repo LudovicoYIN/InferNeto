@@ -244,6 +244,9 @@ namespace infer_neto {
 
         void Add(const Tensor<float> &bias);
         void AddScalar(float value);
+
+        float * data_ptr(uint32_t batch, uint32_t row, uint32_t col) const;
+        Tensor<float> Transpose() const;
     private:
         std::vector<uint32_t> raw_shapes_;        // 存储形状
         std::vector<uint32_t> strides_;      // 存储步长

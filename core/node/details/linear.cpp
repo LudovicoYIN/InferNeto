@@ -82,7 +82,7 @@ InferStatus LinearLayer::Forward(
             CHECK(output_raw_shapes.at(0) == out_features_);
         }
 
-        Tensor<float> result = input->Gemm(*weight);
+        Tensor<float> result = input->Gemm(weight->Transpose());
         if (use_bias_) {
             CHECK(!this->bias_.empty() && this->bias_.size() == 1)
                             << "The bias tensor is empty, but use_bias is true";
@@ -90,6 +90,7 @@ InferStatus LinearLayer::Forward(
             const auto& bias_data = bias_.front();
             CHECK(!bias_data->empty() && bias_data->cols() == out_features_)
                             << "The col of bias tensor is not same to output_features_";
+            std::cout << bias_data->channels() << " " << bias_data->rows() << " " << bias_data->cols() << " " << std::endl;
             result.Add(*bias_data);
         }
         *output = std::move(result);

@@ -5,6 +5,12 @@
 #include <random>
 #include <functional>
 #include "tensor.hpp"
+#include <omp.h>
+#include <immintrin.h> // AVX指令集
+#include <algorithm>
+#include <iostream>
+
+#define TILE_SIZE 16 // 定义tile尺寸，可根据实际CPU缓存调整
 namespace infer_neto {
     Tensor<float>::Tensor(uint32_t channels, uint32_t rows, uint32_t cols) {
         size_ = channels * rows * cols;
@@ -159,9 +165,25 @@ namespace infer_neto {
 
     std::vector<uint32_t> Tensor<float>::shapes() const {
         CHECK(this->data_);
-        return this->raw_shapes_;
+        return {this->channels(), this->rows(), this->cols()};
+    }
+    float * Tensor<float>::data_ptr(uint32_t batch, uint32_t row, uint32_t col) const {
+        CHECK_LT(row, this->rows());
+        CHECK_LT(col, this->cols());
+        CHECK_LT(batch, this->channels());
+        return &(this->data_[(batch * this->rows() * this->cols()) + (row * this->cols()) + col]);
     }
 
+    Tensor<float> Tensor<float>::Transpose() const {
+        // 创建一个新的张量，行列互换
+        Tensor<float> transposed(this->cols(), this->rows());
+        for (uint32_t i = 0; i < this->rows(); ++i) {
+            for (uint32_t j = 0; j < this->cols(); ++j) {
+                transposed.data_[j * this->rows() + i] = this->data_[i * this->cols() + j];
+            }
+        }
+        return transposed;
+    }
     Tensor<float> Tensor<float>::Gemm(const Tensor<float>& other) const {
         // 检查是否为有效的矩阵乘法条件
         CHECK(this->cols() == other.rows()) << "Matrix multiplication dimension mismatch.";
@@ -199,8 +221,6 @@ namespace infer_neto {
         }
     }
     void Tensor<float>::Add(const Tensor<float>& bias) {
-        CHECK((bias.raw_shapes_.size() == 2 && bias.rows() == 1) || bias.raw_shapes_.size() == 3)
-                        << "Bias must be a 1-row 2D tensor or a 3D tensor.";
         CHECK(this->cols() == bias.cols()) << "Dimension mismatch: bias must match the number of columns.";
 
         uint32_t batch_size = this->channels();
